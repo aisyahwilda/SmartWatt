@@ -1,14 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:smartwatt_app/database/db_provider.dart';
-import 'package:smartwatt_app/database/app_database.dart';
+import '../database/app_database.dart';
 
 class AuthProvider extends ChangeNotifier {
-  AuthProvider() {
+  AuthProvider(this._db) {
     _storage = const FlutterSecureStorage();
   }
 
-  final _db = DbProvider.instance;
+  final AppDatabase _db;
   late final FlutterSecureStorage _storage;
 
   bool _loading = false;
@@ -73,5 +72,22 @@ class AuthProvider extends ChangeNotifier {
     await _storage.delete(key: 'userId');
     _user = null;
     notifyListeners();
+  }
+
+  // Update user data in memory and notify listeners
+  void setUser(User user) {
+    _user = user;
+    notifyListeners();
+  }
+
+  // Refresh user data from database
+  Future<void> refreshUser() async {
+    if (_user != null) {
+      final updated = await _db.usersDao.getUserById(_user!.id);
+      if (updated != null) {
+        _user = updated;
+        notifyListeners();
+      }
+    }
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
+import '../constants/colors_app.dart';
 
 class AppBottomNav extends StatelessWidget {
   final int selectedIndex;

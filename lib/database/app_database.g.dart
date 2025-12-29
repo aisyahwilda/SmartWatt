@@ -21,7 +21,9 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   @override
   late final GeneratedColumn<String> email = GeneratedColumn<String>(
       'email', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
   static const VerificationMeta _passwordMeta =
       const VerificationMeta('password');
   @override
@@ -33,6 +35,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   @override
   late final GeneratedColumn<String> fullName = GeneratedColumn<String>(
       'full_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _profilePhotePathMeta =
+      const VerificationMeta('profilePhotePath');
+  @override
+  late final GeneratedColumn<String> profilePhotePath = GeneratedColumn<String>(
+      'profile_phote_path', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _jenisHunianMeta =
       const VerificationMeta('jenisHunian');
@@ -64,17 +72,29 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   late final GeneratedColumn<double> tarifPerKwh = GeneratedColumn<double>(
       'tarif_per_kwh', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _notificationsEnabledMeta =
+      const VerificationMeta('notificationsEnabled');
+  @override
+  late final GeneratedColumn<bool> notificationsEnabled = GeneratedColumn<bool>(
+      'notifications_enabled', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("notifications_enabled" IN (0, 1))'),
+      defaultValue: const Constant(true));
   @override
   List<GeneratedColumn> get $columns => [
         id,
         email,
         password,
         fullName,
+        profilePhotePath,
         jenisHunian,
         jumlahPenghuni,
         dayaListrik,
         golonganTarif,
-        tarifPerKwh
+        tarifPerKwh,
+        notificationsEnabled
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -104,6 +124,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     if (data.containsKey('full_name')) {
       context.handle(_fullNameMeta,
           fullName.isAcceptableOrUnknown(data['full_name']!, _fullNameMeta));
+    }
+    if (data.containsKey('profile_phote_path')) {
+      context.handle(
+          _profilePhotePathMeta,
+          profilePhotePath.isAcceptableOrUnknown(
+              data['profile_phote_path']!, _profilePhotePathMeta));
     }
     if (data.containsKey('jenis_hunian')) {
       context.handle(
@@ -135,6 +161,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           tarifPerKwh.isAcceptableOrUnknown(
               data['tarif_per_kwh']!, _tarifPerKwhMeta));
     }
+    if (data.containsKey('notifications_enabled')) {
+      context.handle(
+          _notificationsEnabledMeta,
+          notificationsEnabled.isAcceptableOrUnknown(
+              data['notifications_enabled']!, _notificationsEnabledMeta));
+    }
     return context;
   }
 
@@ -152,6 +184,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           .read(DriftSqlType.string, data['${effectivePrefix}password'])!,
       fullName: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}full_name']),
+      profilePhotePath: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}profile_phote_path']),
       jenisHunian: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}jenis_hunian']),
       jumlahPenghuni: attachedDatabase.typeMapping
@@ -162,6 +196,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           .read(DriftSqlType.string, data['${effectivePrefix}golongan_tarif']),
       tarifPerKwh: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}tarif_per_kwh']),
+      notificationsEnabled: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}notifications_enabled'])!,
     );
   }
 
@@ -176,21 +212,25 @@ class User extends DataClass implements Insertable<User> {
   final String email;
   final String password;
   final String? fullName;
+  final String? profilePhotePath;
   final String? jenisHunian;
   final int? jumlahPenghuni;
   final int? dayaListrik;
   final String? golonganTarif;
   final double? tarifPerKwh;
+  final bool notificationsEnabled;
   const User(
       {required this.id,
       required this.email,
       required this.password,
       this.fullName,
+      this.profilePhotePath,
       this.jenisHunian,
       this.jumlahPenghuni,
       this.dayaListrik,
       this.golonganTarif,
-      this.tarifPerKwh});
+      this.tarifPerKwh,
+      required this.notificationsEnabled});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -199,6 +239,9 @@ class User extends DataClass implements Insertable<User> {
     map['password'] = Variable<String>(password);
     if (!nullToAbsent || fullName != null) {
       map['full_name'] = Variable<String>(fullName);
+    }
+    if (!nullToAbsent || profilePhotePath != null) {
+      map['profile_phote_path'] = Variable<String>(profilePhotePath);
     }
     if (!nullToAbsent || jenisHunian != null) {
       map['jenis_hunian'] = Variable<String>(jenisHunian);
@@ -215,6 +258,7 @@ class User extends DataClass implements Insertable<User> {
     if (!nullToAbsent || tarifPerKwh != null) {
       map['tarif_per_kwh'] = Variable<double>(tarifPerKwh);
     }
+    map['notifications_enabled'] = Variable<bool>(notificationsEnabled);
     return map;
   }
 
@@ -226,6 +270,9 @@ class User extends DataClass implements Insertable<User> {
       fullName: fullName == null && nullToAbsent
           ? const Value.absent()
           : Value(fullName),
+      profilePhotePath: profilePhotePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(profilePhotePath),
       jenisHunian: jenisHunian == null && nullToAbsent
           ? const Value.absent()
           : Value(jenisHunian),
@@ -241,6 +288,7 @@ class User extends DataClass implements Insertable<User> {
       tarifPerKwh: tarifPerKwh == null && nullToAbsent
           ? const Value.absent()
           : Value(tarifPerKwh),
+      notificationsEnabled: Value(notificationsEnabled),
     );
   }
 
@@ -252,11 +300,14 @@ class User extends DataClass implements Insertable<User> {
       email: serializer.fromJson<String>(json['email']),
       password: serializer.fromJson<String>(json['password']),
       fullName: serializer.fromJson<String?>(json['fullName']),
+      profilePhotePath: serializer.fromJson<String?>(json['profilePhotePath']),
       jenisHunian: serializer.fromJson<String?>(json['jenisHunian']),
       jumlahPenghuni: serializer.fromJson<int?>(json['jumlahPenghuni']),
       dayaListrik: serializer.fromJson<int?>(json['dayaListrik']),
       golonganTarif: serializer.fromJson<String?>(json['golonganTarif']),
       tarifPerKwh: serializer.fromJson<double?>(json['tarifPerKwh']),
+      notificationsEnabled:
+          serializer.fromJson<bool>(json['notificationsEnabled']),
     );
   }
   @override
@@ -267,11 +318,13 @@ class User extends DataClass implements Insertable<User> {
       'email': serializer.toJson<String>(email),
       'password': serializer.toJson<String>(password),
       'fullName': serializer.toJson<String?>(fullName),
+      'profilePhotePath': serializer.toJson<String?>(profilePhotePath),
       'jenisHunian': serializer.toJson<String?>(jenisHunian),
       'jumlahPenghuni': serializer.toJson<int?>(jumlahPenghuni),
       'dayaListrik': serializer.toJson<int?>(dayaListrik),
       'golonganTarif': serializer.toJson<String?>(golonganTarif),
       'tarifPerKwh': serializer.toJson<double?>(tarifPerKwh),
+      'notificationsEnabled': serializer.toJson<bool>(notificationsEnabled),
     };
   }
 
@@ -280,16 +333,21 @@ class User extends DataClass implements Insertable<User> {
           String? email,
           String? password,
           Value<String?> fullName = const Value.absent(),
+          Value<String?> profilePhotePath = const Value.absent(),
           Value<String?> jenisHunian = const Value.absent(),
           Value<int?> jumlahPenghuni = const Value.absent(),
           Value<int?> dayaListrik = const Value.absent(),
           Value<String?> golonganTarif = const Value.absent(),
-          Value<double?> tarifPerKwh = const Value.absent()}) =>
+          Value<double?> tarifPerKwh = const Value.absent(),
+          bool? notificationsEnabled}) =>
       User(
         id: id ?? this.id,
         email: email ?? this.email,
         password: password ?? this.password,
         fullName: fullName.present ? fullName.value : this.fullName,
+        profilePhotePath: profilePhotePath.present
+            ? profilePhotePath.value
+            : this.profilePhotePath,
         jenisHunian: jenisHunian.present ? jenisHunian.value : this.jenisHunian,
         jumlahPenghuni:
             jumlahPenghuni.present ? jumlahPenghuni.value : this.jumlahPenghuni,
@@ -297,6 +355,7 @@ class User extends DataClass implements Insertable<User> {
         golonganTarif:
             golonganTarif.present ? golonganTarif.value : this.golonganTarif,
         tarifPerKwh: tarifPerKwh.present ? tarifPerKwh.value : this.tarifPerKwh,
+        notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       );
   User copyWithCompanion(UsersCompanion data) {
     return User(
@@ -304,6 +363,9 @@ class User extends DataClass implements Insertable<User> {
       email: data.email.present ? data.email.value : this.email,
       password: data.password.present ? data.password.value : this.password,
       fullName: data.fullName.present ? data.fullName.value : this.fullName,
+      profilePhotePath: data.profilePhotePath.present
+          ? data.profilePhotePath.value
+          : this.profilePhotePath,
       jenisHunian:
           data.jenisHunian.present ? data.jenisHunian.value : this.jenisHunian,
       jumlahPenghuni: data.jumlahPenghuni.present
@@ -316,6 +378,9 @@ class User extends DataClass implements Insertable<User> {
           : this.golonganTarif,
       tarifPerKwh:
           data.tarifPerKwh.present ? data.tarifPerKwh.value : this.tarifPerKwh,
+      notificationsEnabled: data.notificationsEnabled.present
+          ? data.notificationsEnabled.value
+          : this.notificationsEnabled,
     );
   }
 
@@ -326,18 +391,30 @@ class User extends DataClass implements Insertable<User> {
           ..write('email: $email, ')
           ..write('password: $password, ')
           ..write('fullName: $fullName, ')
+          ..write('profilePhotePath: $profilePhotePath, ')
           ..write('jenisHunian: $jenisHunian, ')
           ..write('jumlahPenghuni: $jumlahPenghuni, ')
           ..write('dayaListrik: $dayaListrik, ')
           ..write('golonganTarif: $golonganTarif, ')
-          ..write('tarifPerKwh: $tarifPerKwh')
+          ..write('tarifPerKwh: $tarifPerKwh, ')
+          ..write('notificationsEnabled: $notificationsEnabled')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, email, password, fullName, jenisHunian,
-      jumlahPenghuni, dayaListrik, golonganTarif, tarifPerKwh);
+  int get hashCode => Object.hash(
+      id,
+      email,
+      password,
+      fullName,
+      profilePhotePath,
+      jenisHunian,
+      jumlahPenghuni,
+      dayaListrik,
+      golonganTarif,
+      tarifPerKwh,
+      notificationsEnabled);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -346,11 +423,13 @@ class User extends DataClass implements Insertable<User> {
           other.email == this.email &&
           other.password == this.password &&
           other.fullName == this.fullName &&
+          other.profilePhotePath == this.profilePhotePath &&
           other.jenisHunian == this.jenisHunian &&
           other.jumlahPenghuni == this.jumlahPenghuni &&
           other.dayaListrik == this.dayaListrik &&
           other.golonganTarif == this.golonganTarif &&
-          other.tarifPerKwh == this.tarifPerKwh);
+          other.tarifPerKwh == this.tarifPerKwh &&
+          other.notificationsEnabled == this.notificationsEnabled);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
@@ -358,32 +437,38 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> email;
   final Value<String> password;
   final Value<String?> fullName;
+  final Value<String?> profilePhotePath;
   final Value<String?> jenisHunian;
   final Value<int?> jumlahPenghuni;
   final Value<int?> dayaListrik;
   final Value<String?> golonganTarif;
   final Value<double?> tarifPerKwh;
+  final Value<bool> notificationsEnabled;
   const UsersCompanion({
     this.id = const Value.absent(),
     this.email = const Value.absent(),
     this.password = const Value.absent(),
     this.fullName = const Value.absent(),
+    this.profilePhotePath = const Value.absent(),
     this.jenisHunian = const Value.absent(),
     this.jumlahPenghuni = const Value.absent(),
     this.dayaListrik = const Value.absent(),
     this.golonganTarif = const Value.absent(),
     this.tarifPerKwh = const Value.absent(),
+    this.notificationsEnabled = const Value.absent(),
   });
   UsersCompanion.insert({
     this.id = const Value.absent(),
     required String email,
     required String password,
     this.fullName = const Value.absent(),
+    this.profilePhotePath = const Value.absent(),
     this.jenisHunian = const Value.absent(),
     this.jumlahPenghuni = const Value.absent(),
     this.dayaListrik = const Value.absent(),
     this.golonganTarif = const Value.absent(),
     this.tarifPerKwh = const Value.absent(),
+    this.notificationsEnabled = const Value.absent(),
   })  : email = Value(email),
         password = Value(password);
   static Insertable<User> custom({
@@ -391,22 +476,27 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? email,
     Expression<String>? password,
     Expression<String>? fullName,
+    Expression<String>? profilePhotePath,
     Expression<String>? jenisHunian,
     Expression<int>? jumlahPenghuni,
     Expression<int>? dayaListrik,
     Expression<String>? golonganTarif,
     Expression<double>? tarifPerKwh,
+    Expression<bool>? notificationsEnabled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (email != null) 'email': email,
       if (password != null) 'password': password,
       if (fullName != null) 'full_name': fullName,
+      if (profilePhotePath != null) 'profile_phote_path': profilePhotePath,
       if (jenisHunian != null) 'jenis_hunian': jenisHunian,
       if (jumlahPenghuni != null) 'jumlah_penghuni': jumlahPenghuni,
       if (dayaListrik != null) 'daya_listrik': dayaListrik,
       if (golonganTarif != null) 'golongan_tarif': golonganTarif,
       if (tarifPerKwh != null) 'tarif_per_kwh': tarifPerKwh,
+      if (notificationsEnabled != null)
+        'notifications_enabled': notificationsEnabled,
     });
   }
 
@@ -415,21 +505,25 @@ class UsersCompanion extends UpdateCompanion<User> {
       Value<String>? email,
       Value<String>? password,
       Value<String?>? fullName,
+      Value<String?>? profilePhotePath,
       Value<String?>? jenisHunian,
       Value<int?>? jumlahPenghuni,
       Value<int?>? dayaListrik,
       Value<String?>? golonganTarif,
-      Value<double?>? tarifPerKwh}) {
+      Value<double?>? tarifPerKwh,
+      Value<bool>? notificationsEnabled}) {
     return UsersCompanion(
       id: id ?? this.id,
       email: email ?? this.email,
       password: password ?? this.password,
       fullName: fullName ?? this.fullName,
+      profilePhotePath: profilePhotePath ?? this.profilePhotePath,
       jenisHunian: jenisHunian ?? this.jenisHunian,
       jumlahPenghuni: jumlahPenghuni ?? this.jumlahPenghuni,
       dayaListrik: dayaListrik ?? this.dayaListrik,
       golonganTarif: golonganTarif ?? this.golonganTarif,
       tarifPerKwh: tarifPerKwh ?? this.tarifPerKwh,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     );
   }
 
@@ -448,6 +542,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (fullName.present) {
       map['full_name'] = Variable<String>(fullName.value);
     }
+    if (profilePhotePath.present) {
+      map['profile_phote_path'] = Variable<String>(profilePhotePath.value);
+    }
     if (jenisHunian.present) {
       map['jenis_hunian'] = Variable<String>(jenisHunian.value);
     }
@@ -463,6 +560,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (tarifPerKwh.present) {
       map['tarif_per_kwh'] = Variable<double>(tarifPerKwh.value);
     }
+    if (notificationsEnabled.present) {
+      map['notifications_enabled'] = Variable<bool>(notificationsEnabled.value);
+    }
     return map;
   }
 
@@ -473,11 +573,13 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('email: $email, ')
           ..write('password: $password, ')
           ..write('fullName: $fullName, ')
+          ..write('profilePhotePath: $profilePhotePath, ')
           ..write('jenisHunian: $jenisHunian, ')
           ..write('jumlahPenghuni: $jumlahPenghuni, ')
           ..write('dayaListrik: $dayaListrik, ')
           ..write('golonganTarif: $golonganTarif, ')
-          ..write('tarifPerKwh: $tarifPerKwh')
+          ..write('tarifPerKwh: $tarifPerKwh, ')
+          ..write('notificationsEnabled: $notificationsEnabled')
           ..write(')'))
         .toString();
   }
@@ -516,9 +618,9 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, Device> {
   static const VerificationMeta _hoursPerDayMeta =
       const VerificationMeta('hoursPerDay');
   @override
-  late final GeneratedColumn<int> hoursPerDay = GeneratedColumn<int>(
+  late final GeneratedColumn<double> hoursPerDay = GeneratedColumn<double>(
       'hours_per_day', aliasedName, false,
-      type: DriftSqlType.int, requiredDuringInsert: true);
+      type: DriftSqlType.double, requiredDuringInsert: true);
   static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
   @override
   late final GeneratedColumn<int> userId = GeneratedColumn<int>(
@@ -593,7 +695,7 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, Device> {
       watt: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}watt'])!,
       hoursPerDay: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}hours_per_day'])!,
+          .read(DriftSqlType.double, data['${effectivePrefix}hours_per_day'])!,
       userId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}user_id'])!,
     );
@@ -610,7 +712,7 @@ class Device extends DataClass implements Insertable<Device> {
   final String name;
   final String category;
   final int watt;
-  final int hoursPerDay;
+  final double hoursPerDay;
   final int userId;
   const Device(
       {required this.id,
@@ -626,7 +728,7 @@ class Device extends DataClass implements Insertable<Device> {
     map['name'] = Variable<String>(name);
     map['category'] = Variable<String>(category);
     map['watt'] = Variable<int>(watt);
-    map['hours_per_day'] = Variable<int>(hoursPerDay);
+    map['hours_per_day'] = Variable<double>(hoursPerDay);
     map['user_id'] = Variable<int>(userId);
     return map;
   }
@@ -650,7 +752,7 @@ class Device extends DataClass implements Insertable<Device> {
       name: serializer.fromJson<String>(json['name']),
       category: serializer.fromJson<String>(json['category']),
       watt: serializer.fromJson<int>(json['watt']),
-      hoursPerDay: serializer.fromJson<int>(json['hoursPerDay']),
+      hoursPerDay: serializer.fromJson<double>(json['hoursPerDay']),
       userId: serializer.fromJson<int>(json['userId']),
     );
   }
@@ -662,7 +764,7 @@ class Device extends DataClass implements Insertable<Device> {
       'name': serializer.toJson<String>(name),
       'category': serializer.toJson<String>(category),
       'watt': serializer.toJson<int>(watt),
-      'hoursPerDay': serializer.toJson<int>(hoursPerDay),
+      'hoursPerDay': serializer.toJson<double>(hoursPerDay),
       'userId': serializer.toJson<int>(userId),
     };
   }
@@ -672,7 +774,7 @@ class Device extends DataClass implements Insertable<Device> {
           String? name,
           String? category,
           int? watt,
-          int? hoursPerDay,
+          double? hoursPerDay,
           int? userId}) =>
       Device(
         id: id ?? this.id,
@@ -727,7 +829,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
   final Value<String> name;
   final Value<String> category;
   final Value<int> watt;
-  final Value<int> hoursPerDay;
+  final Value<double> hoursPerDay;
   final Value<int> userId;
   const DevicesCompanion({
     this.id = const Value.absent(),
@@ -742,7 +844,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
     required String name,
     required String category,
     required int watt,
-    required int hoursPerDay,
+    required double hoursPerDay,
     required int userId,
   })  : name = Value(name),
         category = Value(category),
@@ -754,7 +856,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
     Expression<String>? name,
     Expression<String>? category,
     Expression<int>? watt,
-    Expression<int>? hoursPerDay,
+    Expression<double>? hoursPerDay,
     Expression<int>? userId,
   }) {
     return RawValuesInsertable({
@@ -772,7 +874,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
       Value<String>? name,
       Value<String>? category,
       Value<int>? watt,
-      Value<int>? hoursPerDay,
+      Value<double>? hoursPerDay,
       Value<int>? userId}) {
     return DevicesCompanion(
       id: id ?? this.id,
@@ -800,7 +902,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
       map['watt'] = Variable<int>(watt.value);
     }
     if (hoursPerDay.present) {
-      map['hours_per_day'] = Variable<int>(hoursPerDay.value);
+      map['hours_per_day'] = Variable<double>(hoursPerDay.value);
     }
     if (userId.present) {
       map['user_id'] = Variable<int>(userId.value);
@@ -1364,22 +1466,26 @@ typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   required String email,
   required String password,
   Value<String?> fullName,
+  Value<String?> profilePhotePath,
   Value<String?> jenisHunian,
   Value<int?> jumlahPenghuni,
   Value<int?> dayaListrik,
   Value<String?> golonganTarif,
   Value<double?> tarifPerKwh,
+  Value<bool> notificationsEnabled,
 });
 typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<int> id,
   Value<String> email,
   Value<String> password,
   Value<String?> fullName,
+  Value<String?> profilePhotePath,
   Value<String?> jenisHunian,
   Value<int?> jumlahPenghuni,
   Value<int?> dayaListrik,
   Value<String?> golonganTarif,
   Value<double?> tarifPerKwh,
+  Value<bool> notificationsEnabled,
 });
 
 final class $$UsersTableReferences
@@ -1436,6 +1542,10 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
   ColumnFilters<String> get fullName => $composableBuilder(
       column: $table.fullName, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get profilePhotePath => $composableBuilder(
+      column: $table.profilePhotePath,
+      builder: (column) => ColumnFilters(column));
+
   ColumnFilters<String> get jenisHunian => $composableBuilder(
       column: $table.jenisHunian, builder: (column) => ColumnFilters(column));
 
@@ -1451,6 +1561,10 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<double> get tarifPerKwh => $composableBuilder(
       column: $table.tarifPerKwh, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get notificationsEnabled => $composableBuilder(
+      column: $table.notificationsEnabled,
+      builder: (column) => ColumnFilters(column));
 
   Expression<bool> devicesRefs(
       Expression<bool> Function($$DevicesTableFilterComposer f) f) {
@@ -1516,6 +1630,10 @@ class $$UsersTableOrderingComposer
   ColumnOrderings<String> get fullName => $composableBuilder(
       column: $table.fullName, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get profilePhotePath => $composableBuilder(
+      column: $table.profilePhotePath,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get jenisHunian => $composableBuilder(
       column: $table.jenisHunian, builder: (column) => ColumnOrderings(column));
 
@@ -1532,6 +1650,10 @@ class $$UsersTableOrderingComposer
 
   ColumnOrderings<double> get tarifPerKwh => $composableBuilder(
       column: $table.tarifPerKwh, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get notificationsEnabled => $composableBuilder(
+      column: $table.notificationsEnabled,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$UsersTableAnnotationComposer
@@ -1555,6 +1677,9 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<String> get fullName =>
       $composableBuilder(column: $table.fullName, builder: (column) => column);
 
+  GeneratedColumn<String> get profilePhotePath => $composableBuilder(
+      column: $table.profilePhotePath, builder: (column) => column);
+
   GeneratedColumn<String> get jenisHunian => $composableBuilder(
       column: $table.jenisHunian, builder: (column) => column);
 
@@ -1569,6 +1694,9 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<double> get tarifPerKwh => $composableBuilder(
       column: $table.tarifPerKwh, builder: (column) => column);
+
+  GeneratedColumn<bool> get notificationsEnabled => $composableBuilder(
+      column: $table.notificationsEnabled, builder: (column) => column);
 
   Expression<T> devicesRefs<T extends Object>(
       Expression<T> Function($$DevicesTableAnnotationComposer a) f) {
@@ -1640,44 +1768,52 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<String> email = const Value.absent(),
             Value<String> password = const Value.absent(),
             Value<String?> fullName = const Value.absent(),
+            Value<String?> profilePhotePath = const Value.absent(),
             Value<String?> jenisHunian = const Value.absent(),
             Value<int?> jumlahPenghuni = const Value.absent(),
             Value<int?> dayaListrik = const Value.absent(),
             Value<String?> golonganTarif = const Value.absent(),
             Value<double?> tarifPerKwh = const Value.absent(),
+            Value<bool> notificationsEnabled = const Value.absent(),
           }) =>
               UsersCompanion(
             id: id,
             email: email,
             password: password,
             fullName: fullName,
+            profilePhotePath: profilePhotePath,
             jenisHunian: jenisHunian,
             jumlahPenghuni: jumlahPenghuni,
             dayaListrik: dayaListrik,
             golonganTarif: golonganTarif,
             tarifPerKwh: tarifPerKwh,
+            notificationsEnabled: notificationsEnabled,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required String email,
             required String password,
             Value<String?> fullName = const Value.absent(),
+            Value<String?> profilePhotePath = const Value.absent(),
             Value<String?> jenisHunian = const Value.absent(),
             Value<int?> jumlahPenghuni = const Value.absent(),
             Value<int?> dayaListrik = const Value.absent(),
             Value<String?> golonganTarif = const Value.absent(),
             Value<double?> tarifPerKwh = const Value.absent(),
+            Value<bool> notificationsEnabled = const Value.absent(),
           }) =>
               UsersCompanion.insert(
             id: id,
             email: email,
             password: password,
             fullName: fullName,
+            profilePhotePath: profilePhotePath,
             jenisHunian: jenisHunian,
             jumlahPenghuni: jumlahPenghuni,
             dayaListrik: dayaListrik,
             golonganTarif: golonganTarif,
             tarifPerKwh: tarifPerKwh,
+            notificationsEnabled: notificationsEnabled,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>
@@ -1741,7 +1877,7 @@ typedef $$DevicesTableCreateCompanionBuilder = DevicesCompanion Function({
   required String name,
   required String category,
   required int watt,
-  required int hoursPerDay,
+  required double hoursPerDay,
   required int userId,
 });
 typedef $$DevicesTableUpdateCompanionBuilder = DevicesCompanion Function({
@@ -1749,7 +1885,7 @@ typedef $$DevicesTableUpdateCompanionBuilder = DevicesCompanion Function({
   Value<String> name,
   Value<String> category,
   Value<int> watt,
-  Value<int> hoursPerDay,
+  Value<double> hoursPerDay,
   Value<int> userId,
 });
 
@@ -1807,7 +1943,7 @@ class $$DevicesTableFilterComposer
   ColumnFilters<int> get watt => $composableBuilder(
       column: $table.watt, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get hoursPerDay => $composableBuilder(
+  ColumnFilters<double> get hoursPerDay => $composableBuilder(
       column: $table.hoursPerDay, builder: (column) => ColumnFilters(column));
 
   $$UsersTableFilterComposer get userId {
@@ -1873,7 +2009,7 @@ class $$DevicesTableOrderingComposer
   ColumnOrderings<int> get watt => $composableBuilder(
       column: $table.watt, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<int> get hoursPerDay => $composableBuilder(
+  ColumnOrderings<double> get hoursPerDay => $composableBuilder(
       column: $table.hoursPerDay, builder: (column) => ColumnOrderings(column));
 
   $$UsersTableOrderingComposer get userId {
@@ -1918,7 +2054,7 @@ class $$DevicesTableAnnotationComposer
   GeneratedColumn<int> get watt =>
       $composableBuilder(column: $table.watt, builder: (column) => column);
 
-  GeneratedColumn<int> get hoursPerDay => $composableBuilder(
+  GeneratedColumn<double> get hoursPerDay => $composableBuilder(
       column: $table.hoursPerDay, builder: (column) => column);
 
   $$UsersTableAnnotationComposer get userId {
@@ -1990,7 +2126,7 @@ class $$DevicesTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<String> category = const Value.absent(),
             Value<int> watt = const Value.absent(),
-            Value<int> hoursPerDay = const Value.absent(),
+            Value<double> hoursPerDay = const Value.absent(),
             Value<int> userId = const Value.absent(),
           }) =>
               DevicesCompanion(
@@ -2006,7 +2142,7 @@ class $$DevicesTableTableManager extends RootTableManager<
             required String name,
             required String category,
             required int watt,
-            required int hoursPerDay,
+            required double hoursPerDay,
             required int userId,
           }) =>
               DevicesCompanion.insert(

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:smartwatt_app/providers/auth_provider.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
-import 'package:smartwatt_app/widgets/app_alert.dart';
+import 'package:flutter/gestures.dart';
+import '../providers/auth_provider.dart';
+import '../constants/colors_app.dart';
+import '../widgets/app_alert.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -18,7 +19,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _confirmCtrl = TextEditingController();
   bool _obscure1 = true;
   bool _obscure2 = true;
-  bool _isRegisterSelected = true;
+  bool _isLoginSelected = false;
 
   @override
   void dispose() {
@@ -48,11 +49,34 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    // Validasi format email (harus ada @ dan .)
+    if (!email.contains('@') || !email.contains('.')) {
+      await showAppAlert(
+        context,
+        title: 'Format email salah',
+        message: 'Email harus menggunakan format: user@domain.com',
+        icon: Icons.error_outline,
+        color: Colors.red,
+      );
+      return;
+    }
+
     if (pass.isEmpty) {
       await showAppAlert(
         context,
         title: 'Password kosong',
         message: 'Mohon masukkan password Anda (minimal 8 karakter).',
+        icon: Icons.lock_outline,
+        color: AppColors.deepTeal,
+      );
+      return;
+    }
+
+    if (confirm.isEmpty) {
+      await showAppAlert(
+        context,
+        title: 'Konfirmasi password kosong',
+        message: 'Mohon masukkan ulang password Anda pada kolom konfirmasi.',
         icon: Icons.lock_outline,
         color: AppColors.deepTeal,
       );
@@ -65,18 +89,7 @@ class _RegisterPageState extends State<RegisterPage> {
         title: 'Password terlalu pendek',
         message: 'Password harus memiliki minimal 8 karakter.',
         icon: Icons.lock_clock,
-        color: Colors.orange,
-      );
-      return;
-    }
-
-    if (confirm.isEmpty) {
-      await showAppAlert(
-        context,
-        title: 'Konfirmasi password kosong',
-        message: 'Mohon ulangi password Anda pada field konfirmasi.',
-        icon: Icons.lock_outline,
-        color: AppColors.deepTeal,
+        color: Colors.red,
       );
       return;
     }
@@ -97,7 +110,6 @@ class _RegisterPageState extends State<RegisterPage> {
       if (ok) {
         if (!mounted) return;
 
-        // Show success message
         await showAppAlert(
           pageContext,
           title: 'Pendaftaran Berhasil!',
@@ -109,12 +121,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
         if (!mounted) return;
 
-        // Clear form fields
         _emailCtrl.clear();
         _passwordCtrl.clear();
         _confirmCtrl.clear();
 
-        // Navigate to login page
         navigator.pushReplacementNamed('/login');
       }
     } catch (e) {
@@ -144,7 +154,7 @@ class _RegisterPageState extends State<RegisterPage> {
             children: [
               const SizedBox(height: 8),
               Text(
-                'Create An Account',
+                'Buat Akun',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -153,20 +163,37 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 6),
               GestureDetector(
-                onTap: () => Navigator.pushReplacementNamed(context, '/login'),
-                child: Text(
-                  'Already have an account? Log in',
+                child: RichText(
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.black90,
+                  text: TextSpan(
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.black90,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Sudah punya akun? '),
+                      TextSpan(
+                        text: 'Masuk',
+                        style: const TextStyle(
+                          color: AppColors.deepTeal,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          },
+                      ),
+                    ],
                   ),
                 ),
               ),
 
               const SizedBox(height: 18),
 
-              // Toggle (Login / Register)
+              const SizedBox(height: 20),
+
               Container(
+                height: 50,
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: AppColors.teal50,
@@ -175,65 +202,59 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () =>
-                            Navigator.pushReplacementNamed(context, '/login'),
-                        style: ButtonStyle(
-                          elevation: WidgetStateProperty.all(0),
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color?>((states) {
-                                if (states.contains(WidgetState.pressed)) {
-                                  return AppColors.deepTeal50;
-                                }
-                                if (!_isRegisterSelected) {
-                                  return AppColors.deepTeal50;
-                                }
-                                return Colors.transparent;
-                              }),
-                          foregroundColor: WidgetStateProperty.all(
-                            Colors.white,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (!_isLoginSelected) {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _isLoginSelected
+                                ? AppColors.deepTeal
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(36),
                           ),
-                          shape: WidgetStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(36),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Masuk',
+                            style: TextStyle(
+                              color: _isLoginSelected
+                                  ? Colors.white
+                                  : AppColors.deepTeal,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
-                        child: const Text(
-                          'Login',
-                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () =>
-                            setState(() => _isRegisterSelected = true),
-                        style: ButtonStyle(
-                          elevation: WidgetStateProperty.all(0),
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color?>((states) {
-                                if (states.contains(WidgetState.pressed)) {
-                                  return AppColors.deepTeal50;
-                                }
-                                if (_isRegisterSelected) {
-                                  return AppColors.deepTeal50;
-                                }
-                                return Colors.transparent;
-                              }),
-                          foregroundColor: WidgetStateProperty.all(
-                            Colors.white,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_isLoginSelected) {
+                            Navigator.pushReplacementNamed(
+                              context,
+                              '/register',
+                            );
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: !_isLoginSelected
+                                ? AppColors.deepTeal
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(36),
                           ),
-                          shape: WidgetStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(36),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Daftar',
+                            style: TextStyle(
+                              color: !_isLoginSelected
+                                  ? Colors.white
+                                  : AppColors.deepTeal,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
-                        child: const Text(
-                          'Register',
-                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                     ),
@@ -241,9 +262,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
 
+              const SizedBox(height: 20),
+
               const SizedBox(height: 18),
 
-              // Email
               TextField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
@@ -267,7 +289,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 12),
 
-              // Password
               TextField(
                 controller: _passwordCtrl,
                 obscureText: _obscure1,
@@ -298,7 +319,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 12),
 
-              // Confirm Password
               TextField(
                 controller: _confirmCtrl,
                 obscureText: _obscure2,
@@ -329,7 +349,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 28),
 
-              // Create Account button
               ElevatedButton(
                 onPressed: auth.loading ? null : () => _createAccount(context),
                 style: ElevatedButton.styleFrom(

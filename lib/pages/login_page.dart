@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
-import 'package:smartwatt_app/providers/auth_provider.dart';
-import 'package:smartwatt_app/database/db_provider.dart';
-import 'package:smartwatt_app/widgets/app_alert.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
+import '../providers/auth_provider.dart';
+import '../database/app_database.dart';
+import '../widgets/app_alert.dart';
+import '../constants/colors_app.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -43,6 +44,18 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    // Validasi format email
+    if (!email.contains('@') || !email.contains('.')) {
+      await showAppAlert(
+        context,
+        title: 'Format email salah',
+        message: 'Email harus menggunakan format: user@domain.com',
+        icon: Icons.error_outline,
+        color: Colors.orange,
+      );
+      return;
+    }
+
     if (password.isEmpty) {
       await showAppAlert(
         context,
@@ -53,7 +66,8 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      final existing = await DbProvider.instance.usersDao.getUserByEmail(email);
+      final db = context.read<AppDatabase>();
+      final existing = await db.usersDao.getUserByEmail(email);
       if (existing == null) {
         if (!mounted) return;
         await showAppAlert(
@@ -103,7 +117,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const SizedBox(height: 28),
               Text(
-                'Start your\nenergy-saving journey!',
+                'Mulai Perjalanan\nHemat Energimu!',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -112,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Sign in to your account',
+                'Masuk ke akun Anda',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.black80,
@@ -122,76 +136,68 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 20),
 
               Container(
+                height: 50,
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: AppColors.teal50,
                   borderRadius: BorderRadius.circular(40),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () =>
-                            setState(() => _isLoginSelected = true),
-                        style: ButtonStyle(
-                          elevation: MaterialStateProperty.all(0),
-                          backgroundColor:
-                              MaterialStateProperty.resolveWith<Color?>((
-                                states,
-                              ) {
-                                if (states.contains(MaterialState.pressed))
-                                  return AppColors.deepTeal50;
-                                if (_isLoginSelected)
-                                  return AppColors.deepTeal50;
-                                return Colors.transparent;
-                              }),
-                          foregroundColor: MaterialStateProperty.all(
-                            Colors.white,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (!_isLoginSelected) {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _isLoginSelected
+                                ? AppColors.deepTeal
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(36),
                           ),
-                          shape: MaterialStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(36),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Masuk',
+                            style: TextStyle(
+                              color: _isLoginSelected
+                                  ? Colors.white
+                                  : AppColors.deepTeal,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
-                        child: const Text(
-                          'Login',
-                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pushReplacementNamed(
-                          context,
-                          '/register',
-                        ),
-                        style: ButtonStyle(
-                          elevation: MaterialStateProperty.all(0),
-                          backgroundColor:
-                              MaterialStateProperty.resolveWith<Color?>((
-                                states,
-                              ) {
-                                if (states.contains(MaterialState.pressed))
-                                  return AppColors.deepTeal50;
-                                if (!_isLoginSelected)
-                                  return AppColors.deepTeal50;
-                                return Colors.transparent;
-                              }),
-                          foregroundColor: MaterialStateProperty.all(
-                            Colors.white,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_isLoginSelected) {
+                            Navigator.pushReplacementNamed(
+                              context,
+                              '/register',
+                            );
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: !_isLoginSelected
+                                ? AppColors.deepTeal
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(36),
                           ),
-                          shape: MaterialStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(36),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Daftar',
+                            style: TextStyle(
+                              color: !_isLoginSelected
+                                  ? Colors.white
+                                  : AppColors.deepTeal,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
-                        child: const Text(
-                          'Register',
-                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                     ),
@@ -287,16 +293,35 @@ class _LoginPageState extends State<LoginPage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Login', style: TextStyle(fontSize: 16)),
+                      : const Text('Masuk', style: TextStyle(fontSize: 16)),
                 ),
               ),
 
               const SizedBox(height: 28),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, '/register'),
-                child: const Text(
-                  "Belum punya akun? Daftar Sekarang",
-                  style: TextStyle(color: Color(0xFF494949)),
+              GestureDetector(
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      color: Color(0xFF494949),
+                      fontSize: 14,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Belum punya akun? '),
+                      TextSpan(
+                        text: 'Daftar Sekarang',
+                        style: TextStyle(
+                          color: AppColors.deepTeal,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.pushNamed(context, '/register');
+                          },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

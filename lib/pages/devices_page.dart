@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
-import 'package:smartwatt_app/widgets/app_bottom_nav.dart';
-import 'package:smartwatt_app/widgets/app_alert.dart';
-import 'package:smartwatt_app/providers/auth_provider.dart';
-import 'package:smartwatt_app/database/db_provider.dart';
-import 'package:smartwatt_app/database/app_database.dart';
+import '../constants/colors_app.dart';
+import '../widgets/app_bottom_nav.dart';
+import '../widgets/app_alert.dart';
+import '../providers/auth_provider.dart';
+import '../database/app_database.dart';
 
 class DevicesPage extends StatefulWidget {
   static const String routeName = '/devices';
@@ -20,38 +19,105 @@ class _DevicesPageState extends State<DevicesPage> {
   bool _loading = true;
   List<Device> _devices = [];
 
-  final List<String> _categories = [
-    'Kulkas',
-    'AC',
-    'Mesin Cuci',
-    'TV',
+  // Kategori perangkat yang valid (17 kategori spesifik)
+  static const List<String> _categories = [
     'Lampu',
+    'AC',
+    'Kipas Angin',
+    'Speaker',
+    'Rice Cooker',
+    'Microwave',
+    'Blender',
+    'Kulkas',
     'Laptop',
-    'Lainnya',
+    'PC',
+    'Printer',
+    'Monitor',
+    'Mesin Cuci',
+    'Setrika',
+    'Pompa Air',
+    'TV',
   ];
 
-  String? _imageFor(Device d) {
-    final key = (d.name.isNotEmpty ? d.name : d.category).toLowerCase();
-    const map = {
-      'kulkas': 'images/kulkas.jpg',
-      'lemari es': 'images/kulkas.jpg',
-      'ac': 'images/ac.png',
-      'pendingin': 'images/ac.png',
-      'mesin cuci': 'images/mesin_cuci.jpg',
-      'tv': 'images/tv.png',
-      'televisi': 'images/tv.png',
-      'lampu': 'images/lampu.jpg',
-      'komputer': 'images/laptop.png',
-      'laptop': 'images/laptop.png',
-    };
-    for (final entry in map.entries) {
-      if (key.contains(entry.key)) return entry.value;
+  // Helper: dapatkan icon untuk setiap kategori
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Lampu':
+        return Icons.lightbulb;
+      case 'AC':
+        return Icons.ac_unit;
+      case 'Kipas Angin':
+        return Icons.air;
+      case 'Speaker':
+        return Icons.speaker;
+      case 'Rice Cooker':
+        return Icons.rice_bowl;
+      case 'Microwave':
+        return Icons.microwave;
+      case 'Blender':
+        return Icons.blender;
+      case 'Kulkas':
+        return Icons.kitchen;
+      case 'Laptop':
+        return Icons.laptop;
+      case 'PC':
+        return Icons.computer;
+      case 'Printer':
+        return Icons.print;
+      case 'Monitor':
+        return Icons.monitor;
+      case 'Mesin Cuci':
+        return Icons.local_laundry_service;
+      case 'Setrika':
+        return Icons.iron;
+      case 'Pompa Air':
+        return Icons.water_drop;
+      case 'TV':
+        return Icons.tv;
+      default:
+        return Icons.devices;
     }
-    final cat = d.category.toLowerCase();
-    for (final entry in map.entries) {
-      if (cat.contains(entry.key)) return entry.value;
+  }
+
+  // Helper: dapatkan asset image berdasarkan kategori
+  String _getDeviceImage(String category, String deviceName) {
+    // Mapping langsung per kategori
+    switch (category) {
+      case 'Lampu':
+        return 'images/lampu.png';
+      case 'AC':
+        return 'images/AC.png';
+      case 'Kipas Angin':
+        return 'images/kipas.png';
+      case 'Speaker':
+        return 'images/speaker.png';
+      case 'Rice Cooker':
+        return 'images/ricecooker.png';
+      case 'Microwave':
+        return 'images/microwave.png';
+      case 'Blender':
+        return 'images/blender.png';
+      case 'Kulkas':
+        return 'images/kulkas.png';
+      case 'Laptop':
+        return 'images/laptop.png';
+      case 'PC':
+        return 'images/pc.png';
+      case 'Printer':
+        return 'images/printer.png';
+      case 'Monitor':
+        return 'images/pc.png';
+      case 'Mesin Cuci':
+        return 'images/mesincuci.png';
+      case 'Setrika':
+        return 'images/setrika.png';
+      case 'Pompa Air':
+        return 'images/pompair.png';
+      case 'TV':
+        return 'images/TV.png';
+      default:
+        return 'images/hero.png';
     }
-    return null;
   }
 
   Future<void> _showEditDialog(Device device) async {
@@ -83,14 +149,22 @@ class _DevicesPageState extends State<DevicesPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _categories.contains(categoryCtl.text)
-                        ? categoryCtl.text
+                    value: _categories.contains(device.category)
+                        ? device.category
                         : _categories.last,
                     decoration: const InputDecoration(labelText: 'Kategori'),
                     items: _categories
                         .map(
-                          (cat) =>
-                              DropdownMenuItem(value: cat, child: Text(cat)),
+                          (cat) => DropdownMenuItem(
+                            value: cat,
+                            child: Row(
+                              children: [
+                                Icon(_getCategoryIcon(cat), size: 20),
+                                const SizedBox(width: 8),
+                                Text(cat),
+                              ],
+                            ),
+                          ),
                         )
                         .toList(),
                     onChanged: (val) => setState(
@@ -106,9 +180,12 @@ class _DevicesPageState extends State<DevicesPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: hoursCtl,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Jam penggunaan/hari',
+                      hintText: 'Contoh: 2.5',
                     ),
                   ),
                 ],
@@ -151,7 +228,7 @@ class _DevicesPageState extends State<DevicesPage> {
                     final name = nameCtl.text.trim();
                     final category = categoryCtl.text.trim();
                     final watt = int.tryParse(wattCtl.text.trim()) ?? 0;
-                    final hours = int.tryParse(hoursCtl.text.trim()) ?? 0;
+                    final hours = double.tryParse(hoursCtl.text.trim()) ?? 0.0;
                     if (name.isEmpty ||
                         category.isEmpty ||
                         watt <= 0 ||
@@ -174,7 +251,32 @@ class _DevicesPageState extends State<DevicesPage> {
                       );
                       return;
                     }
-                    await DbProvider.instance.devicesDao.updateDevice(
+                    // Single confirmation before saving changes
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        title: const Text('Konfirmasi'),
+                        content: const Text(
+                          'Anda yakin ingin menyimpan perubahan?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('Tidak'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text('Iya'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm != true) return;
+                    final db = Provider.of<AppDatabase>(context, listen: false);
+                    await db.devicesDao.updateDevice(
                       id: device.id,
                       name: name,
                       category: category,
@@ -185,10 +287,24 @@ class _DevicesPageState extends State<DevicesPage> {
                     Navigator.of(context).pop();
                     await _loadDevices();
                     if (!mounted) return;
-                    await showAppAlert(
-                      pageContext,
-                      title: 'Tersimpan',
-                      message: 'Perangkat berhasil diperbarui.',
+                    // Success feedback via snackbar (only one alert flow overall)
+                    ScaffoldMessenger.of(pageContext).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppColors.successGreen,
+                        content: Row(
+                          children: const [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Perangkat berhasil diperbarui.',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
                     );
                   },
                   child: const Text('Simpan', style: TextStyle(fontSize: 14)),
@@ -218,9 +334,8 @@ class _DevicesPageState extends State<DevicesPage> {
       return;
     }
 
-    final devices = await DbProvider.instance.devicesDao.getDevicesForUser(
-      auth.user!.id,
-    );
+    final db = Provider.of<AppDatabase>(context, listen: false);
+    final devices = await db.devicesDao.getDevicesForUser(auth.user!.id);
     setState(() {
       _devices = devices;
       _loading = false;
@@ -256,12 +371,22 @@ class _DevicesPageState extends State<DevicesPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedCategory,
+                    value: _categories.contains(selectedCategory)
+                        ? selectedCategory
+                        : _categories.first,
                     decoration: const InputDecoration(labelText: 'Kategori'),
                     items: _categories
                         .map(
-                          (cat) =>
-                              DropdownMenuItem(value: cat, child: Text(cat)),
+                          (cat) => DropdownMenuItem(
+                            value: cat,
+                            child: Row(
+                              children: [
+                                Icon(_getCategoryIcon(cat), size: 20),
+                                const SizedBox(width: 8),
+                                Text(cat),
+                              ],
+                            ),
+                          ),
                         )
                         .toList(),
                     onChanged: (val) => setState(
@@ -277,9 +402,12 @@ class _DevicesPageState extends State<DevicesPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: hoursCtl,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Jam penggunaan/hari',
+                      hintText: 'Contoh: 2.5',
                     ),
                   ),
                 ],
@@ -322,7 +450,7 @@ class _DevicesPageState extends State<DevicesPage> {
                     final name = nameCtl.text.trim();
                     final category = selectedCategory;
                     final watt = int.tryParse(wattCtl.text.trim()) ?? 0;
-                    final hours = int.tryParse(hoursCtl.text.trim()) ?? 0;
+                    final hours = double.tryParse(hoursCtl.text.trim()) ?? 0.0;
                     if (name.isEmpty || watt <= 0 || hours <= 0) {
                       await showAppAlert(
                         dialogContext,
@@ -342,6 +470,30 @@ class _DevicesPageState extends State<DevicesPage> {
                       );
                       return;
                     }
+                    // Single confirmation before adding device
+                    final confirm = await showDialog<bool>(
+                      context: dialogContext,
+                      builder: (ctx) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        title: const Text('Konfirmasi'),
+                        content: const Text(
+                          'Anda yakin ingin menyimpan perangkat?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('Tidak'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text('Iya'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm != true) return;
 
                     final auth = Provider.of<AuthProvider>(
                       dialogContext,
@@ -358,7 +510,11 @@ class _DevicesPageState extends State<DevicesPage> {
                       return;
                     }
 
-                    await DbProvider.instance.devicesDao.insertDevice(
+                    final db = Provider.of<AppDatabase>(
+                      dialogContext,
+                      listen: false,
+                    );
+                    await db.devicesDao.insertDevice(
                       userId: auth.user!.id,
                       name: name,
                       category: category,
@@ -370,10 +526,23 @@ class _DevicesPageState extends State<DevicesPage> {
                     Navigator.of(dialogContext).pop();
                     await _loadDevices();
                     if (!mounted) return;
-                    await showAppAlert(
-                      pageContext,
-                      title: 'Berhasil',
-                      message: 'Perangkat berhasil ditambahkan.',
+                    ScaffoldMessenger.of(pageContext).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppColors.successGreen,
+                        content: Row(
+                          children: const [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Perangkat berhasil ditambahkan.',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
                     );
                   },
                   child: const Text('Simpan', style: TextStyle(fontSize: 14)),
@@ -432,13 +601,27 @@ class _DevicesPageState extends State<DevicesPage> {
 
     if (confirm == true) {
       try {
-        await DbProvider.instance.devicesDao.deleteDevice(d.id);
+        final db = Provider.of<AppDatabase>(context, listen: false);
+        await db.devicesDao.deleteDevice(d.id);
         await _loadDevices();
         if (!mounted) return;
-        await showAppAlert(
-          pageContext,
-          title: 'Terhapus',
-          message: 'Perangkat berhasil dihapus.',
+        ScaffoldMessenger.of(pageContext).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.successGreen,
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Perangkat berhasil dihapus.',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       } catch (e) {
         if (!mounted) return;
@@ -459,7 +642,10 @@ class _DevicesPageState extends State<DevicesPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
         ),
-        title: const Text('Daftar Perangkat'),
+        title: const Text(
+          'Daftar Perangkat',
+          style: TextStyle(color: Colors.black),
+        ),
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
@@ -497,7 +683,7 @@ class _DevicesPageState extends State<DevicesPage> {
                     childAspectRatio: 1.15,
                     children: _devices.map((d) {
                       final daily = (d.watt * d.hoursPerDay) / 1000.0;
-                      final imgPath = _imageFor(d);
+                      final imgPath = _getDeviceImage(d.category, d.name);
                       return Card(
                         color: AppColors.lightTeal,
                         shape: RoundedRectangleBorder(
@@ -542,35 +728,30 @@ class _DevicesPageState extends State<DevicesPage> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (imgPath != null)
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: Image.asset(
-                                        imgPath,
-                                        width: 70,
-                                        height: 82,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (c, e, s) =>
-                                            const SizedBox(
-                                              width: 70,
-                                              height: 82,
-                                            ),
-                                      ),
-                                    )
-                                  else
-                                    Container(
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.asset(
+                                      imgPath,
                                       width: 70,
                                       height: 82,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Icon(
-                                        Icons.devices_other,
-                                        size: 32,
-                                        color: Colors.black45,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (c, e, s) => Container(
+                                        width: 70,
+                                        height: 82,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          _getCategoryIcon(d.category),
+                                          size: 32,
+                                          color: AppColors.deepTeal,
+                                        ),
                                       ),
                                     ),
+                                  ),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Column(

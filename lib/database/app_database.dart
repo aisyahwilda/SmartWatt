@@ -25,6 +25,18 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  // Ambil budget bulanan terbaru untuk user
+  Future<MonthlyBudget?> getLatestBudget(int userId) {
+    return (select(monthlyBudgets)
+          ..where((b) => b.userId.equals(userId))
+          ..orderBy([
+            (b) =>
+                OrderingTerm(expression: b.createdAt, mode: OrderingMode.desc),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
+  }
 }
 
 // Data access objects (DAOs)
@@ -71,7 +83,6 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
 
     if (users.isEmpty) return null;
 
-    // If multiple users found with same email, use the first one
     final user = users.first;
 
     final parts = user.password.split(r'$');
@@ -82,7 +93,6 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     return candidate == hash ? user : null;
   }
 
-  // helper: get user by email without checking password
   Future<User?> getUserByEmail(String email) async {
     final users = await (select(
       db.users,
@@ -95,9 +105,18 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     return (select(db.users)..where((u) => u.id.equals(id))).getSingleOrNull();
   }
 
+  // watch user by id (for real-time updates)
+  Stream<User?> watchUserById(int id) {
+    return (select(
+      db.users,
+    )..where((u) => u.id.equals(id))).watchSingleOrNull();
+  }
+
   // update user profile
   Future<void> updateUserProfile({
     required int userId,
+    String? fullName,
+    String? profilePhotePath,
     String? jenisHunian,
     int? jumlahPenghuni,
     int? dayaListrik,
@@ -106,12 +125,23 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   }) async {
     await (update(db.users)..where((u) => u.id.equals(userId))).write(
       UsersCompanion(
+        fullName: fullName != null ? Value(fullName) : const Value.absent(),
+        profilePhotePath: profilePhotePath != null
+            ? Value(profilePhotePath)
+            : const Value.absent(),
         jenisHunian: Value(jenisHunian),
         jumlahPenghuni: Value(jumlahPenghuni),
         dayaListrik: Value(dayaListrik),
         golonganTarif: Value(golonganTarif),
         tarifPerKwh: Value(tarifPerKwh),
       ),
+    );
+  }
+
+  // update notifikasi enabled status
+  Future<void> updateNotificationsEnabled(int userId, bool enabled) async {
+    await (update(db.users)..where((u) => u.id.equals(userId))).write(
+      UsersCompanion(notificationsEnabled: Value(enabled)),
     );
   }
 }
@@ -125,7 +155,7 @@ class DevicesDao extends DatabaseAccessor<AppDatabase> with _$DevicesDaoMixin {
     required String name,
     required String category,
     required int watt,
-    required int hoursPerDay,
+    required double hoursPerDay,
   }) {
     return into(db.devices).insert(
       DevicesCompanion(
@@ -151,7 +181,7 @@ class DevicesDao extends DatabaseAccessor<AppDatabase> with _$DevicesDaoMixin {
     required String name,
     required String category,
     required int watt,
-    required int hoursPerDay,
+    required double hoursPerDay,
   }) {
     return (update(db.devices)..where((d) => d.id.equals(id))).write(
       DevicesCompanion(
@@ -165,7 +195,7 @@ class DevicesDao extends DatabaseAccessor<AppDatabase> with _$DevicesDaoMixin {
 
   double estimateMonthlyKWh({
     required int watt,
-    required int hoursPerDay,
+    required double hoursPerDay,
     int daysInMonth = 30,
   }) {
     return (watt * hoursPerDay * daysInMonth) / 1000.0;
@@ -173,7 +203,7 @@ class DevicesDao extends DatabaseAccessor<AppDatabase> with _$DevicesDaoMixin {
 
   double estimateMonthlyCost({
     required int watt,
-    required int hoursPerDay,
+    required double hoursPerDay,
     required double pricePerKWh,
     int daysInMonth = 30,
   }) {

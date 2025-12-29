@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
+import '../constants/colors_app.dart';
 
 class HeroScreen extends StatelessWidget {
   const HeroScreen({super.key});
@@ -38,7 +38,7 @@ class HeroScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      "Pantau penggunaan listrik Anda\ndan temukan cara cerdas\nuntuk menghemat\nenergi dengan AI.",
+                      "Pantau penggunaan listrik Anda dan temukan cara cerdas untuk menghemat energi dengan AI.",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: isMobile ? 28 : 40,

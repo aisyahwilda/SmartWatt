@@ -1,11 +1,14 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
-import 'package:smartwatt_app/widgets/app_bottom_nav.dart';
-import 'package:smartwatt_app/providers/auth_provider.dart';
-import 'package:smartwatt_app/pages/profile_page.dart';
-import 'package:smartwatt_app/pages/faq_page.dart';
-import 'package:smartwatt_app/pages/budget_page.dart';
+import '../constants/colors_app.dart';
+import '../widgets/app_bottom_nav.dart';
+import '../providers/auth_provider.dart';
+import '../database/app_database.dart';
+import 'profile_page.dart';
+import 'faq_page.dart';
+import 'budget_page.dart';
 
 class SettingsPage extends StatefulWidget {
   static const String routeName = '/settings';
@@ -17,19 +20,16 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _notificationsEnabled = true;
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final userEmail = auth.user?.email ?? 'user@example.com';
-    final userName = userEmail.split('@').first;
+    final db = context.watch<AppDatabase>();
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Pengaturan',
@@ -49,58 +49,143 @@ class _SettingsPageState extends State<SettingsPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: AppColors.lightTeal,
-                  child: Text(
-                    userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.deepTeal,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Builder(
+              builder: (context) {
+                if (auth.user == null) {
+                  final email = 'user@example.com';
+                  final name = 'User';
+                  return Row(
                     children: [
-                      Text(
-                        'Hai ${userName.isNotEmpty ? userName[0].toUpperCase() + userName.substring(1) : "User"}!',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: AppColors.lightTeal,
+                        child: Text(
+                          name[0].toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.deepTeal,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        userEmail,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Hai User!',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              email,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ],
+                  );
+                }
+
+                return StreamBuilder<User?>(
+                  stream: db.usersDao.watchUserById(auth.user!.id),
+                  builder: (context, snapshot) {
+                    final email = auth.user!.email;
+                    String displayName = email.split('@')[0];
+                    String? photoPath;
+                    if (snapshot.hasData && snapshot.data != null) {
+                      final user = snapshot.data!;
+                      if (user.fullName != null &&
+                          user.fullName!.trim().isNotEmpty) {
+                        displayName = user.fullName!;
+                      }
+                      photoPath = user.profilePhotePath;
+                    }
+
+                    return Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: AppColors.lightTeal,
+                          backgroundImage: photoPath != null
+                              ? (kIsWeb
+                                    ? NetworkImage(photoPath)
+                                    : FileImage(File(photoPath)))
+                              : null,
+                          child: photoPath == null
+                              ? Text(
+                                  displayName.isNotEmpty
+                                      ? displayName[0].toUpperCase()
+                                      : 'U',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.deepTeal,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Hai ${displayName.isNotEmpty ? displayName[0].toUpperCase() + displayName.substring(1) : "User"}!',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                email,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
           ),
 
           const SizedBox(height: 20),
 
-          // Settings Items
           _buildSettingItem(
             icon: Icons.person_outline,
             title: 'Profile',
-            onTap: () {
-              Navigator.of(context).push(
+            onTap: () async {
+              final result = await Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => const ProfilePage()),
               );
+
+              // Jika profil diperbarui, tetap di halaman Pengaturan dan refresh tampilan
+              if (result == true && mounted) {
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Profil berhasil diperbarui'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
           ),
 
@@ -134,7 +219,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 24),
 
-          // Logout Button
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -145,9 +229,43 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             onPressed: () async {
-              await auth.logout();
-              if (!mounted) return;
-              Navigator.of(context).pushReplacementNamed('/login');
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  title: const Text('Konfirmasi Keluar'),
+                  content: const Text('Apakah Anda yakin ingin keluar?'),
+                  actions: [
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey.shade700,
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Tidak'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.deepTeal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Iya'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                await auth.logout();
+                if (!mounted) return;
+                Navigator.of(context).pushReplacementNamed('/login');
+              }
             },
             child: const Text(
               'Keluar',
@@ -195,43 +313,82 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildNotificationToggle() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final db = Provider.of<AppDatabase>(context, listen: false);
+
+    if (auth.user == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<User?>(
+      stream: db.usersDao.watchUserById(auth.user!.id),
+      builder: (context, snapshot) {
+        final notificationsEnabled =
+            snapshot.data?.notificationsEnabled ?? true;
+
+        return Container(
           decoration: BoxDecoration(
-            color: AppColors.lightTeal,
-            shape: BoxShape.circle,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            Icons.notifications_outlined,
-            color: AppColors.deepTeal,
-            size: 22,
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightTeal,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.notifications_outlined,
+                    color: AppColors.deepTeal,
+                    size: 22,
+                  ),
+                ),
+                title: const Text(
+                  'Notifikasi',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+                trailing: Switch(
+                  value: notificationsEnabled,
+                  onChanged: (value) async {
+                    await db.usersDao.updateNotificationsEnabled(
+                      auth.user!.id,
+                      value,
+                    );
+                  },
+                  activeColor: AppColors.deepTeal,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    notificationsEnabled
+                        ? 'Notifikasi akan muncul saat membuka aplikasi'
+                        : 'Notifikasi dimatikan',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        title: const Text(
-          'Notifikasi',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
-        trailing: Switch(
-          value: _notificationsEnabled,
-          onChanged: (value) {
-            setState(() {
-              _notificationsEnabled = value;
-            });
-          },
-          activeColor: AppColors.deepTeal,
-        ),
-      ),
+        );
+      },
     );
   }
 }

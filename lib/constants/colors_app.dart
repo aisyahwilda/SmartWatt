@@ -27,4 +27,7 @@ class AppColors {
   static const Color black06 = Color(0x0F000000); // black 6%
 
   static const Color red10 = Color(0x1AFF0000); // red 10%
+
+  // Success color for check icons and snackbars
+  static const Color successGreen = Color(0xFF2E7D32); // Material Green 800
 }

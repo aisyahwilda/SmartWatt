@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
+import '../constants/colors_app.dart';
 
 Future<void> showAppAlert(
   BuildContext context, {
@@ -8,6 +8,25 @@ Future<void> showAppAlert(
   IconData? icon,
   Color? color,
 }) {
+  // Auto-detect success alerts and add green check icon
+  final bool isSuccessTitle =
+      title == 'Berhasil' ||
+      title == 'Tersimpan' ||
+      title == 'Terhapus' ||
+      title == 'Pendaftaran Berhasil!';
+  final IconData? resolvedIcon =
+      icon ?? (isSuccessTitle ? Icons.check_circle_outline : null);
+
+  // For check icons, always use green. For other icons, use provided color or default.
+  final Color iconColor;
+  if (resolvedIcon == Icons.check_circle_outline) {
+    iconColor = AppColors.successGreen;
+  } else if (color != null) {
+    iconColor = color;
+  } else {
+    iconColor = AppColors.deepTeal;
+  }
+
   return showDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -18,14 +37,14 @@ Future<void> showAppAlert(
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null)
+            if (resolvedIcon != null)
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: (color ?? AppColors.deepTeal).withOpacity(0.12),
+                  color: iconColor.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 36, color: color ?? AppColors.deepTeal),
+                child: Icon(resolvedIcon, size: 36, color: iconColor),
               ),
             const SizedBox(height: 12),
             Text(
@@ -54,7 +73,13 @@ Future<void> showAppAlert(
                   ),
                 ),
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK', style: TextStyle(fontSize: 14)),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ],

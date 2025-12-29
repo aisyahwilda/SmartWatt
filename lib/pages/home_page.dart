@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:smartwatt_app/constants/colors_app.dart';
-import 'package:smartwatt_app/providers/auth_provider.dart';
-import 'package:smartwatt_app/database/db_provider.dart';
-import 'package:smartwatt_app/database/app_database.dart';
+import '../constants/colors_app.dart';
+import '../providers/auth_provider.dart';
+import '../database/app_database.dart';
 import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
-import 'package:smartwatt_app/widgets/app_bottom_nav.dart';
-import 'package:smartwatt_app/services/gemini_service.dart';
+import '../widgets/app_bottom_nav.dart';
+import '../services/gemini_service.dart';
+import 'budget_page.dart';
 
 class SmartWattDashboard extends StatefulWidget {
   const SmartWattDashboard({super.key});
@@ -26,6 +26,7 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
   List<String> _aiRecommendations = [];
   bool _loadingRecommendations = false;
   final GeminiService _geminiService = GeminiService();
+  int _tarifPerKWh = 1500; // Default tarif listrik per kWh
 
   @override
   void initState() {
@@ -33,48 +34,82 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadDevicesForUser());
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload when returning to this page
+    _loadDevicesForUser();
+  }
+
+  @override
+  void didUpdateWidget(covariant SmartWattDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadDevicesForUser();
+  }
+
   Future<void> _loadDevicesForUser() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final db = DbProvider.instance;
+    final db = Provider.of<AppDatabase>(context, listen: false);
     _loadingDevices = true;
     setState(() {});
 
     if (auth.user == null) {
+      print('⚠️ [SmartWatt] User belum login, tidak ada data device');
       _devices = [];
       _totalDailyKWh = 0.0;
+      _monthlyBudget = null;
       _loadingDevices = false;
       setState(() {});
       return;
     }
 
     final userId = auth.user!.id;
+    print('✅ [SmartWatt] Loading devices untuk user ID: $userId');
+
+    // Load user profile for name, email, and tarif
+    final user = await db.usersDao.getUserById(userId);
+    if (user != null) {
+      print('✅ [SmartWatt] User loaded: ${user.fullName ?? user.email}');
+      // Ambil tarif dari user, jika null pakai default 1500
+      _tarifPerKWh = user.tarifPerKwh?.toInt() ?? 1500;
+      print('✅ [SmartWatt] Tarif: Rp $_tarifPerKWh/kWh');
+      setState(() {}); // Update UI immediately after loading user profile
+    }
+
     final devices = await db.devicesDao.getDevicesForUser(userId);
     _devices = devices;
+    print('✅ [SmartWatt] Devices loaded: ${devices.length} perangkat');
 
-    // Load budget
+    // Load budget untuk bulan ini
+
     final budgets =
         await (db.select(db.monthlyBudgets)
               ..where((b) => b.userId.equals(userId))
-              ..orderBy([
-                (t) => OrderingTerm(
-                  expression: t.createdAt,
-                  mode: OrderingMode.desc,
-                ),
-              ])
+              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
               ..limit(1))
             .get();
+
     if (budgets.isNotEmpty) {
-      _monthlyBudget = budgets.first.budget;
+      final budget = budgets.first;
+      final now = DateTime.now();
+
+      // Check if budget is from current month
+      if (budget.createdAt.year == now.year &&
+          budget.createdAt.month == now.month) {
+        _monthlyBudget = budget.budget;
+      } else {
+        _monthlyBudget = null;
+      }
+    } else {
+      _monthlyBudget = null;
     }
 
-    // Calculate today's total and yesterday's total
     double total = 0.0;
     double yesterday = 0.0;
     for (final d in devices) {
       total += (d.watt * d.hoursPerDay) / 1000.0;
       await _loadUsageHistoryForDevice(d.id);
 
-      // Get yesterday's data if available
       final history = _deviceUsageData[d.id];
       if (history != null && history.length >= 2) {
         yesterday += history[history.length - 2];
@@ -84,34 +119,49 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
     }
     _totalDailyKWh = total;
     _yesterdayKWh = yesterday;
+    print(
+      '✅ [SmartWatt] Total daily: ${_totalDailyKWh.toStringAsFixed(2)} kWh',
+    );
+    print('✅ [SmartWatt] Budget: ${_monthlyBudget ?? "Belum diatur"}');
     _loadingDevices = false;
     setState(() {});
 
-    // Load AI recommendations after devices are loaded
-    _loadAIRecommendations();
+    // Panggil AI hanya jika ada perangkat
+    if (_devices.isNotEmpty) {
+      print(
+        '🤖 [SmartWatt] Memanggil AI untuk ${_devices.length} perangkat...',
+      );
+      _loadAIRecommendations();
+    } else {
+      print('⚠️ [SmartWatt] Tidak ada perangkat, skip AI recommendations');
+    }
   }
 
   Future<void> _loadAIRecommendations() async {
     if (_devices.isEmpty) {
+      print(
+        'ℹ️ [SmartWatt] Devices kosong, tampilkan fallback recommendations',
+      );
       setState(() {
         _aiRecommendations = [
           '📱 Tambahkan perangkat untuk mendapat rekomendasi AI',
           '💡 Mulai pantau penggunaan listrik harianmu',
           '🎯 Atur budget untuk kontrol biaya lebih baik',
         ];
+        _loadingRecommendations = false;
       });
       return;
     }
 
     setState(() {
       _loadingRecommendations = true;
+      _aiRecommendations = ['⏳ Meminta rekomendasi dari AI...'];
     });
 
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final db = DbProvider.instance;
+      final db = Provider.of<AppDatabase>(context, listen: false);
 
-      // Get user profile data
       User? user;
       if (auth.user != null) {
         user = await db.usersDao.getUserById(auth.user!.id);
@@ -121,28 +171,68 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
         return {'name': d.name, 'watt': d.watt, 'hours': d.hoursPerDay};
       }).toList();
 
+      print(
+        '🤖 [SmartWatt] Calling Gemini API dengan ${deviceData.length} devices...',
+      );
+      print('   Total kWh: ${_totalDailyKWh.toStringAsFixed(2)}');
+      print('   Budget: ${_monthlyBudget ?? "null"}');
+
+      // Determine if over budget (use user's tarif)
+      final monthlyCost = (_totalDailyKWh * 30 * _tarifPerKWh).toInt();
+      final overBudget =
+          _monthlyBudget != null && monthlyCost > _monthlyBudget!;
+
+      // Find the device with highest consumption (most wasteful)
+      Device mostWasteful = _devices.first;
+      double maxConsumption = 0.0;
+      for (final device in _devices) {
+        final consumption = (device.watt * device.hoursPerDay) / 1000.0;
+        if (consumption > maxConsumption) {
+          maxConsumption = consumption;
+          mostWasteful = device;
+        }
+      }
+
       final recommendations = await _geminiService.generateRecommendations(
-        devices: deviceData,
-        totalDailyKWh: _totalDailyKWh,
-        monthlyBudget: _monthlyBudget,
-        jenisHunian: user?.jenisHunian,
-        jumlahPenghuni: user?.jumlahPenghuni,
-        dayaListrik: user?.dayaListrik,
-        golonganTarif: user?.golonganTarif,
-        tarifPerKwh: user?.tarifPerKwh,
+        statusKonsumsi: overBudget ? 'OVER_BUDGET' : 'AMAN',
+        perangkatBoros: mostWasteful.name,
+        jenisHunian: user?.jenisHunian ?? '-',
+        jumlahPenghuni: user?.jumlahPenghuni ?? 1,
       );
 
+      print(
+        '✅ [SmartWatt] AI returned ${recommendations.length} recommendations',
+      );
+
+      // Validate recommendations are not empty
+      if (recommendations.isEmpty) {
+        print('⚠️ [SmartWatt] Recommendations list is empty, using fallback');
+        setState(() {
+          _aiRecommendations = [
+            '💡 AI berhasil dijalankan tapi tidak ada output',
+            '🔄 Coba muat ulang rekomendasi dengan refresh',
+          ];
+          _loadingRecommendations = false;
+        });
+        return;
+      }
+
+      print('🎯 [SmartWatt] Setting UI with ${recommendations.length} items');
       setState(() {
         _aiRecommendations = recommendations;
         _loadingRecommendations = false;
       });
-    } catch (e) {
-      print('Error loading recommendations: $e');
+      print('✅ [SmartWatt] UI updated successfully');
+    } catch (e, stack) {
+      print('❌ [SmartWatt] Error calling AI: $e');
+      print('📋 Stack: ${stack.toString().split('\n').take(5).join('\n')}');
       setState(() {
         _aiRecommendations = [
-          '💡 Matikan perangkat yang tidak digunakan',
-          '❄️ Atur suhu AC di 24-26°C',
-          '⏰ Gunakan timer untuk perangkat tertentu',
+          '⚠️ Gagal memuat rekomendasi AI',
+          '💡 Pastikan koneksi internet Anda stabil',
+          '🔄 Coba refresh halaman ini',
+          '',
+          'Error: ${e.toString().substring(0, 100)}',
         ];
         _loadingRecommendations = false;
       });
@@ -150,15 +240,22 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
   }
 
   Future<void> _loadUsageHistoryForDevice(int deviceId) async {
-    final db = DbProvider.instance;
-    final query = (db.select(db.usageHistory)
-      ..where((u) => u.deviceId.equals(deviceId))
-      ..orderBy([
-        (t) => OrderingTerm(expression: t.date, mode: OrderingMode.asc),
-      ]));
-    final rows = await query.get();
+    final db = Provider.of<AppDatabase>(context, listen: false);
+    // Ambil 7 hari terakhir (order DESC, lalu dibalik agar urut kronologis)
+    final query =
+        (db.select(db.usageHistory)
+              ..where((u) => u.deviceId.equals(deviceId))
+              ..orderBy([
+                (t) =>
+                    OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+              ])
+              ..limit(7))
+            .get();
+
+    final rows = await query;
     if (rows.isNotEmpty) {
-      _deviceUsageData[deviceId] = rows.map((r) => r.kWhUsed).toList();
+      final ordered = rows.reversed.map((r) => r.kWhUsed).toList();
+      _deviceUsageData[deviceId] = ordered;
     }
   }
 
@@ -171,22 +268,20 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width > 900;
-
     return Scaffold(
       backgroundColor: AppColors.paleBlue,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(6.0),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.asset(
-              'images/hero.png',
+              'images/logo.png',
               fit: BoxFit.cover,
-              width: 44,
-              height: 44,
+              width: 56,
+              height: 56,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   color: AppColors.lightTeal,
@@ -199,65 +294,82 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
             ),
           ),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Hi, Mark!',
-              style: TextStyle(
-                color: AppColors.textDark,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Pantau dan hemat penggunaan listrik Anda dengan AI.',
-              style: TextStyle(color: AppColors.textDark80, fontSize: 12),
-            ),
-          ],
+        title: Builder(
+          builder: (context) {
+            final auth = context.watch<AuthProvider>();
+            final db = context.watch<AppDatabase>();
+
+            if (auth.user == null) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Hi, User!',
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Pantau dan hemat penggunaan listrik Anda dengan AI.',
+                    style: TextStyle(color: AppColors.textDark80, fontSize: 12),
+                  ),
+                ],
+              );
+            }
+
+            return StreamBuilder<User?>(
+              stream: db.usersDao.watchUserById(auth.user!.id),
+              builder: (context, snapshot) {
+                String displayName = 'User';
+
+                if (snapshot.hasData && snapshot.data != null) {
+                  final user = snapshot.data!;
+                  if (user.fullName != null &&
+                      user.fullName!.trim().isNotEmpty) {
+                    // Tampilkan nama lengkap
+                    displayName = user.fullName!;
+                  } else {
+                    // Fallback ke email username
+                    displayName = user.email.split('@')[0];
+                  }
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Hi, $displayName!',
+                      style: TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Pantau dan hemat penggunaan listrik Anda dengan AI.',
+                      style: TextStyle(
+                        color: AppColors.textDark80,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         ),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (isWide) {
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: SizedBox(
-                        height: constraints.maxHeight - 16.0,
-                        child: SingleChildScrollView(child: _leftColumn()),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: SizedBox(
-                        height: constraints.maxHeight - 16.0,
-                        child: SingleChildScrollView(child: _rightColumn()),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                _leftColumn(),
-                const SizedBox(height: 16),
-                _rightColumn(),
-              ],
-            );
-          },
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [_leftColumn(), const SizedBox(height: 16), _rightColumn()],
         ),
       ),
       bottomNavigationBar: const AppBottomNav(selectedIndex: 0),
@@ -458,12 +570,24 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (_loadingRecommendations)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                    Row(
+                      children: [
+                        if (_loadingRecommendations)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(Icons.refresh, size: 20),
+                            onPressed: _loadAIRecommendations,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Muat ulang rekomendasi',
+                          ),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -536,8 +660,9 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
                   const SizedBox(height: 6),
                   Builder(
                     builder: (context) {
-                      // Estimate monthly cost: daily kWh × 30 days × price per kWh
-                      final monthlyCost = (_totalDailyKWh * 30 * 1500).toInt();
+                      // Estimate monthly cost: daily kWh × 30 days × user's tarif
+                      final monthlyCost = (_totalDailyKWh * 30 * _tarifPerKWh)
+                          .toInt();
                       final percentage = _monthlyBudget! > 0
                           ? (monthlyCost / _monthlyBudget!).clamp(0.0, 1.0)
                           : 0.0;
@@ -558,7 +683,7 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
                             color: percentage > 0.8
                                 ? Colors.red
                                 : percentage > 0.6
-                                ? Colors.orange
+                                ? Colors.red
                                 : AppColors.teal,
                             minHeight: 12,
                           ),
@@ -572,9 +697,9 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
                             style: TextStyle(
                               fontSize: 12,
                               color: percentage > 0.9
-                                  ? Colors.red.shade700
+                                  ? Colors.yellow.shade700
                                   : percentage > 0.7
-                                  ? Colors.orange.shade700
+                                  ? Colors.yellow.shade700
                                   : Colors.grey.shade700,
                               fontWeight: percentage > 0.7
                                   ? FontWeight.w600
@@ -592,8 +717,19 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/settings');
+                    onPressed: () async {
+                      // Navigate ke budget page dan tunggu result
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BudgetPage(),
+                        ),
+                      );
+
+                      // Jika budget disimpan, reload data
+                      if (result == true && mounted) {
+                        await _loadDevicesForUser();
+                      }
                     },
                     child: const Text('Atur Budget'),
                   ),
@@ -633,13 +769,19 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  _totalDailyKWh.toStringAsFixed(2),
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.deepTeal,
-                    height: 1.0,
+                Flexible(
+                  fit: FlexFit.tight,
+                  child: Text(
+                    _totalDailyKWh.toStringAsFixed(2),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.deepTeal,
+                      height: 1.0,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -660,66 +802,160 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
             const SizedBox(height: 12),
 
             // Warning message - dynamic based on data
-            if (_totalDailyKWh > _yesterdayKWh)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.amber,
-                      size: 18,
+            if (_yesterdayKWh > 0) ...[
+              if (_totalDailyKWh > _yesterdayKWh) ...[
+                () {
+                  final percentageIncrease =
+                      ((_totalDailyKWh - _yesterdayKWh) / _yesterdayKWh * 100);
+                  final isSignificant = percentageIncrease > 20;
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Sedikit lebih tinggi dari penggunaan kemarin.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade800,
-                        ),
+                    decoration: BoxDecoration(
+                      color: isSignificant
+                          ? Colors.red.shade50
+                          : Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSignificant
+                            ? Colors.red.shade200
+                            : Colors.amber.shade200,
+                        width: 1,
                       ),
                     ),
-                  ],
-                ),
-              )
-            else if (_totalDailyKWh < _yesterdayKWh)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.trending_down,
-                      color: Colors.green.shade700,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Bagus! Lebih hemat dari kemarin.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade800,
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSignificant
+                              ? Icons.error_outline
+                              : Icons.warning_amber_rounded,
+                          color: isSignificant
+                              ? Colors.red.shade700
+                              : Colors.amber.shade700,
+                          size: 20,
                         ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isSignificant
+                                    ? '⚠️ Penggunaan meningkat signifikan!'
+                                    : 'Penggunaan lebih tinggi dari kemarin',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSignificant
+                                      ? FontWeight.bold
+                                      : FontWeight.w600,
+                                  color: isSignificant
+                                      ? Colors.red.shade900
+                                      : Colors.grey.shade800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '+${percentageIncrease.toStringAsFixed(1)}% dari kemarin (${_yesterdayKWh.toStringAsFixed(2)} kWh)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }(),
+              ] else if (_totalDailyKWh < _yesterdayKWh) ...[
+                () {
+                  final percentageDecrease =
+                      ((_yesterdayKWh - _totalDailyKWh) / _yesterdayKWh * 100);
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.green.shade200,
+                        width: 1,
                       ),
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.trending_down,
+                          color: Colors.green.shade700,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '✅ Hebat! Penggunaan lebih hemat',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green.shade900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '-${percentageDecrease.toStringAsFixed(1)}% dari kemarin (${_yesterdayKWh.toStringAsFixed(2)} kWh)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }(),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        color: Colors.blue.shade700,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Penggunaan sama dengan kemarin (${_yesterdayKWh.toStringAsFixed(2)} kWh)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
+            ],
           ],
         ),
       ),
@@ -749,9 +985,9 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
   }
 
   Widget _estCostCard() {
-    // Calculate daily and monthly costs
-    final dailyCost = (_totalDailyKWh * 1500).toInt();
-    final monthlyCost = (_totalDailyKWh * 30 * 1500).toInt();
+    // Calculate daily and monthly costs using user's tarif
+    final dailyCost = (_totalDailyKWh * _tarifPerKWh).toInt();
+    final monthlyCost = (_totalDailyKWh * 30 * _tarifPerKWh).toInt();
     final weeklyAverage = _computeWeeklyAverage();
 
     return Card(
@@ -1298,7 +1534,6 @@ class _TodayBarChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (devices.isEmpty) return;
 
-    // Calculate today's usage for each device (watt * hours/day / 1000)
     final usageData = devices.map((d) {
       final watt = d.watt;
       final hours = d.hoursPerDay;
@@ -1309,8 +1544,8 @@ class _TodayBarChartPainter extends CustomPainter {
     final count = devices.length;
     final double spacing = 10.0;
     final double barHeight = 28.0;
-    final double nameWidth = size.width * 0.28;
-    final double chartWidth = size.width - nameWidth - 80;
+    final double nameWidth = size.width * 0.35;
+    final double chartWidth = size.width - nameWidth - 70;
 
     final barPaint = Paint()
       ..color = barColor
@@ -1333,14 +1568,10 @@ class _TodayBarChartPainter extends CustomPainter {
 
       // Draw device name
       final namePainter = TextPainter(
-        text: TextSpan(
-          text: devices[i].name.length > 10
-              ? '${devices[i].name.substring(0, 10)}...'
-              : devices[i].name,
-          style: textStyle,
-        ),
+        text: TextSpan(text: devices[i].name, style: textStyle),
         textDirection: TextDirection.ltr,
         maxLines: 1,
+        ellipsis: '...',
       );
       namePainter.layout(maxWidth: nameWidth);
       namePainter.paint(
