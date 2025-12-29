@@ -41,7 +41,7 @@ Future<void> showAppAlert(
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.12),
+                  color: iconColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(resolvedIcon, size: 36, color: iconColor),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors_app.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -149,7 +150,7 @@ class _DevicesPageState extends State<DevicesPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _categories.contains(device.category)
+                    initialValue: _categories.contains(device.category)
                         ? device.category
                         : _categories.last,
                     decoration: const InputDecoration(labelText: 'Kategori'),
@@ -175,6 +176,24 @@ class _DevicesPageState extends State<DevicesPage> {
                   TextField(
                     controller: wattCtl,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (val) {
+                      // sanitize input and alert if letters present
+                      final cleaned = val.replaceAll(RegExp(r'[^0-9]'), '');
+                      if (cleaned != val) {
+                        wattCtl.text = cleaned;
+                        wattCtl.selection = TextSelection.fromPosition(
+                          TextPosition(offset: wattCtl.text.length),
+                        );
+                        showAppAlert(
+                          context,
+                          title: 'Input tidak valid',
+                          message: 'Masukkan angka saja, jangan huruf.',
+                          icon: Icons.error_outline,
+                          color: Colors.orange,
+                        );
+                      }
+                    },
                     decoration: const InputDecoration(labelText: 'Watt (Daya)'),
                   ),
                   const SizedBox(height: 12),
@@ -183,6 +202,37 @@ class _DevicesPageState extends State<DevicesPage> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9\.]')),
+                    ],
+                    onChanged: (val) {
+                      // allow only digits and one dot
+                      var cleaned = val.replaceAll(RegExp(r'[^0-9\.]'), '');
+                      final dotCount = '.'.allMatches(cleaned).length;
+                      if (dotCount > 1) {
+                        // keep only first dot
+                        final firstDotIndex = cleaned.indexOf('.');
+                        cleaned = cleaned.replaceAll('.', '');
+                        cleaned =
+                            cleaned.substring(0, firstDotIndex) +
+                            '.' +
+                            cleaned.substring(firstDotIndex);
+                      }
+                      if (cleaned != val) {
+                        hoursCtl.text = cleaned;
+                        hoursCtl.selection = TextSelection.fromPosition(
+                          TextPosition(offset: hoursCtl.text.length),
+                        );
+                        showAppAlert(
+                          context,
+                          title: 'Input tidak valid',
+                          message:
+                              'Masukkan angka saja (boleh menggunakan titik untuk desimal).',
+                          icon: Icons.error_outline,
+                          color: Colors.orange,
+                        );
+                      }
+                    },
                     decoration: const InputDecoration(
                       labelText: 'Jam penggunaan/hari',
                       hintText: 'Contoh: 2.5',
@@ -371,7 +421,7 @@ class _DevicesPageState extends State<DevicesPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _categories.contains(selectedCategory)
+                    initialValue: _categories.contains(selectedCategory)
                         ? selectedCategory
                         : _categories.first,
                     decoration: const InputDecoration(labelText: 'Kategori'),
@@ -397,6 +447,23 @@ class _DevicesPageState extends State<DevicesPage> {
                   TextField(
                     controller: wattCtl,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (val) {
+                      final cleaned = val.replaceAll(RegExp(r'[^0-9]'), '');
+                      if (cleaned != val) {
+                        wattCtl.text = cleaned;
+                        wattCtl.selection = TextSelection.fromPosition(
+                          TextPosition(offset: wattCtl.text.length),
+                        );
+                        showAppAlert(
+                          context,
+                          title: 'Input tidak valid',
+                          message: 'Masukkan angka saja, jangan huruf.',
+                          icon: Icons.error_outline,
+                          color: Colors.orange,
+                        );
+                      }
+                    },
                     decoration: const InputDecoration(labelText: 'Watt (Daya)'),
                   ),
                   const SizedBox(height: 12),
@@ -405,6 +472,35 @@ class _DevicesPageState extends State<DevicesPage> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9\.]')),
+                    ],
+                    onChanged: (val) {
+                      var cleaned = val.replaceAll(RegExp(r'[^0-9\.]'), '');
+                      final dotCount = '.'.allMatches(cleaned).length;
+                      if (dotCount > 1) {
+                        final firstDotIndex = cleaned.indexOf('.');
+                        cleaned = cleaned.replaceAll('.', '');
+                        cleaned =
+                            cleaned.substring(0, firstDotIndex) +
+                            '.' +
+                            cleaned.substring(firstDotIndex);
+                      }
+                      if (cleaned != val) {
+                        hoursCtl.text = cleaned;
+                        hoursCtl.selection = TextSelection.fromPosition(
+                          TextPosition(offset: hoursCtl.text.length),
+                        );
+                        showAppAlert(
+                          context,
+                          title: 'Input tidak valid',
+                          message:
+                              'Masukkan angka saja (boleh menggunakan titik untuk desimal).',
+                          icon: Icons.error_outline,
+                          color: Colors.orange,
+                        );
+                      }
+                    },
                     decoration: const InputDecoration(
                       labelText: 'Jam penggunaan/hari',
                       hintText: 'Contoh: 2.5',

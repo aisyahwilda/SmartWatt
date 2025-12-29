@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors_app.dart';
@@ -381,6 +382,7 @@ class _ProfilePageState extends State<ProfilePage> {
               controller: _memberCountController,
               label: 'Jumlah Penghuni',
               keyboardType: TextInputType.number,
+              numericOnly: true,
               hint: 'Contoh: 4',
             ),
             const SizedBox(height: 16),
@@ -389,6 +391,7 @@ class _ProfilePageState extends State<ProfilePage> {
               controller: _powerRatingController,
               label: 'Daya Listrik (VA)',
               keyboardType: TextInputType.number,
+              numericOnly: true,
               hint: 'Contoh: 1300',
             ),
             const SizedBox(height: 16),
@@ -404,6 +407,7 @@ class _ProfilePageState extends State<ProfilePage> {
               controller: _pricePerKwhController,
               label: 'Tarif per kWh',
               keyboardType: TextInputType.number,
+              numericOnly: true,
               hint: 'Contoh: 1500',
             ),
 
@@ -442,6 +446,8 @@ class _ProfilePageState extends State<ProfilePage> {
     TextInputType? keyboardType,
     bool enabled = true,
     VoidCallback? onChanged,
+    bool numericOnly = false,
+    bool allowDecimal = false,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -453,7 +459,34 @@ class _ProfilePageState extends State<ProfilePage> {
         controller: controller,
         enabled: enabled,
         keyboardType: keyboardType,
-        onChanged: (_) => onChanged?.call(),
+        onChanged: (val) {
+          // If numericOnly is requested, sanitize and show alert if letters were present
+          if (numericOnly && val.isNotEmpty) {
+            // Allow only digits, or digits+dot when allowDecimal is true
+            final cleaned = allowDecimal
+                ? val.replaceAll(RegExp(r'[^0-9\.]'), '')
+                : val.replaceAll(RegExp(r'[^0-9]'), '');
+
+            // If user pasted or typed invalid chars, notify and set cleaned value
+            if (cleaned != val) {
+              controller.text = cleaned;
+              controller.selection = TextSelection.fromPosition(
+                TextPosition(offset: controller.text.length),
+              );
+              showAppAlert(
+                context,
+                title: 'Input tidak valid',
+                message: 'Masukkan angka saja, jangan huruf.',
+                icon: Icons.error_outline,
+                color: Colors.orange,
+              );
+              onChanged?.call();
+              return;
+            }
+          }
+
+          onChanged?.call();
+        },
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
@@ -465,6 +498,14 @@ class _ProfilePageState extends State<ProfilePage> {
           fontSize: 15,
           color: enabled ? Colors.black87 : Colors.grey.shade500,
         ),
+        inputFormatters: numericOnly
+            ? [
+                // Allow digits only or digits+dot if decimal allowed
+                FilteringTextInputFormatter.allow(
+                  allowDecimal ? RegExp(r'[0-9\.]') : RegExp(r'[0-9]'),
+                ),
+              ]
+            : null,
       ),
     );
   }

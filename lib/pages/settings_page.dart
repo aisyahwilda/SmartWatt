@@ -366,7 +366,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       value,
                     );
                   },
-                  activeColor: AppColors.deepTeal,
+                  activeThumbColor: AppColors.deepTeal,
                 ),
               ),
               Padding(

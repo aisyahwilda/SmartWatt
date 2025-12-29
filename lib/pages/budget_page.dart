@@ -433,6 +433,22 @@ class _BudgetPageState extends State<BudgetPage> {
                             _selectedQuickBudget = null;
                           });
                         }
+                        // If user enters any non-digit characters (pasted), sanitize and alert
+                        final cleaned = value.replaceAll(RegExp(r'[^0-9]'), '');
+                        if (cleaned != value) {
+                          _budgetController.text = cleaned;
+                          _budgetController
+                              .selection = TextSelection.fromPosition(
+                            TextPosition(offset: _budgetController.text.length),
+                          );
+                          showAppAlert(
+                            context,
+                            title: 'Input tidak valid',
+                            message: 'Masukkan angka saja, jangan huruf.',
+                            icon: Icons.error_outline,
+                            color: Colors.orange,
+                          );
+                        }
                       },
                     ),
                   ),

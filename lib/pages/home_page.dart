@@ -54,7 +54,7 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
     setState(() {});
 
     if (auth.user == null) {
-      print('⚠️ [SmartWatt] User belum login, tidak ada data device');
+      debugPrint('⚠️ [SmartWatt] User belum login, tidak ada data device');
       _devices = [];
       _totalDailyKWh = 0.0;
       _monthlyBudget = null;
@@ -64,12 +64,12 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
     }
 
     final userId = auth.user!.id;
-    print('✅ [SmartWatt] Loading devices untuk user ID: $userId');
+    debugPrint('✅ [SmartWatt] Loading devices untuk user ID: $userId');
 
     // Load user profile for name, email, and tarif
     final user = await db.usersDao.getUserById(userId);
     if (user != null) {
-      print('✅ [SmartWatt] User loaded: ${user.fullName ?? user.email}');
+      debugPrint('✅ [SmartWatt] User loaded: ${user.fullName ?? user.email}');
       // Ambil tarif dari user, jika null pakai default 1500
       _tarifPerKWh = user.tarifPerKwh?.toInt() ?? 1500;
       print('✅ [SmartWatt] Tarif: Rp $_tarifPerKWh/kWh');
@@ -78,7 +78,7 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
 
     final devices = await db.devicesDao.getDevicesForUser(userId);
     _devices = devices;
-    print('✅ [SmartWatt] Devices loaded: ${devices.length} perangkat');
+    debugPrint('✅ [SmartWatt] Devices loaded: ${devices.length} perangkat');
 
     // Load budget untuk bulan ini
 
@@ -119,16 +119,16 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
     }
     _totalDailyKWh = total;
     _yesterdayKWh = yesterday;
-    print(
+    debugPrint(
       '✅ [SmartWatt] Total daily: ${_totalDailyKWh.toStringAsFixed(2)} kWh',
     );
-    print('✅ [SmartWatt] Budget: ${_monthlyBudget ?? "Belum diatur"}');
+    debugPrint('✅ [SmartWatt] Budget: ${_monthlyBudget ?? "Belum diatur"}');
     _loadingDevices = false;
     setState(() {});
 
     // Panggil AI hanya jika ada perangkat
     if (_devices.isNotEmpty) {
-      print(
+      debugPrint(
         '🤖 [SmartWatt] Memanggil AI untuk ${_devices.length} perangkat...',
       );
       _loadAIRecommendations();
@@ -139,7 +139,7 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
 
   Future<void> _loadAIRecommendations() async {
     if (_devices.isEmpty) {
-      print(
+      debugPrint(
         'ℹ️ [SmartWatt] Devices kosong, tampilkan fallback recommendations',
       );
       setState(() {
@@ -171,11 +171,11 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
         return {'name': d.name, 'watt': d.watt, 'hours': d.hoursPerDay};
       }).toList();
 
-      print(
+      debugPrint(
         '🤖 [SmartWatt] Calling Gemini API dengan ${deviceData.length} devices...',
       );
-      print('   Total kWh: ${_totalDailyKWh.toStringAsFixed(2)}');
-      print('   Budget: ${_monthlyBudget ?? "null"}');
+      debugPrint('   Total kWh: ${_totalDailyKWh.toStringAsFixed(2)}');
+      debugPrint('   Budget: ${_monthlyBudget ?? "null"}');
 
       // Determine if over budget (use user's tarif)
       final monthlyCost = (_totalDailyKWh * 30 * _tarifPerKWh).toInt();
@@ -206,7 +206,9 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
 
       // Validate recommendations are not empty
       if (recommendations.isEmpty) {
-        print('⚠️ [SmartWatt] Recommendations list is empty, using fallback');
+        debugPrint(
+          '⚠️ [SmartWatt] Recommendations list is empty, using fallback',
+        );
         setState(() {
           _aiRecommendations = [
             '💡 AI berhasil dijalankan tapi tidak ada output',
@@ -217,15 +219,19 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
         return;
       }
 
-      print('🎯 [SmartWatt] Setting UI with ${recommendations.length} items');
+      debugPrint(
+        '🎯 [SmartWatt] Setting UI with ${recommendations.length} items',
+      );
       setState(() {
         _aiRecommendations = recommendations;
         _loadingRecommendations = false;
       });
-      print('✅ [SmartWatt] UI updated successfully');
+      debugPrint('✅ [SmartWatt] UI updated successfully');
     } catch (e, stack) {
-      print('❌ [SmartWatt] Error calling AI: $e');
-      print('📋 Stack: ${stack.toString().split('\n').take(5).join('\n')}');
+      debugPrint('❌ [SmartWatt] Error calling AI: $e');
+      debugPrint(
+        '📋 Stack: ${stack.toString().split('\n').take(5).join('\n')}',
+      );
       setState(() {
         _aiRecommendations = [
           '⚠️ Gagal memuat rekomendasi AI',
