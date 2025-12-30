@@ -144,6 +144,11 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
       UsersCompanion(notificationsEnabled: Value(enabled)),
     );
   }
+
+  // Delete user account (for account deletion feature)
+  Future<void> deleteUser(int userId) async {
+    await (delete(db.users)..where((u) => u.id.equals(userId))).go();
+  }
 }
 
 @DriftAccessor(tables: [Devices, UsageHistory, MonthlyBudgets])
@@ -213,6 +218,28 @@ class DevicesDao extends DatabaseAccessor<AppDatabase> with _$DevicesDaoMixin {
           daysInMonth: daysInMonth,
         ) *
         pricePerKWh;
+  }
+
+  // Delete all devices for a user (for account deletion)
+  Future<void> deleteAllDevicesForUser(int userId) async {
+    await (delete(db.devices)..where((d) => d.userId.equals(userId))).go();
+  }
+
+  // Delete all usage history for devices owned by a user
+  Future<void> deleteAllUsageHistoryForUser(int userId) async {
+    final userDevices = await getDevicesForUser(userId);
+    for (final device in userDevices) {
+      await (delete(
+        db.usageHistory,
+      )..where((h) => h.deviceId.equals(device.id))).go();
+    }
+  }
+
+  // Delete all budgets for a user
+  Future<void> deleteAllBudgetsForUser(int userId) async {
+    await (delete(
+      db.monthlyBudgets,
+    )..where((b) => b.userId.equals(userId))).go();
   }
 }
 

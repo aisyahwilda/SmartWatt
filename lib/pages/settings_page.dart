@@ -219,6 +219,26 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 24),
 
+          // Delete Account Button
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.delete_forever),
+            label: const Text(
+              'Hapus Akun',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            onPressed: () => _showDeleteAccountDialog(context, auth, db),
+          ),
+
+          const SizedBox(height: 12),
+
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -390,5 +410,144 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       },
     );
+  }
+
+  Future<void> _showDeleteAccountDialog(
+    BuildContext context,
+    AuthProvider auth,
+    AppDatabase db,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 8),
+            Text('Hapus Akun?'),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tindakan ini TIDAK DAPAT DIBATALKAN!',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              SizedBox(height: 12),
+              Text('Semua data Anda akan dihapus secara permanen:'),
+              SizedBox(height: 8),
+              Text('• Informasi akun dan profil'),
+              Text('• Daftar perangkat elektronik'),
+              Text('• Riwayat penggunaan listrik'),
+              Text('• Pengaturan budget bulanan'),
+              Text('• Rekomendasi AI yang disimpan'),
+              SizedBox(height: 12),
+              Text(
+                'Apakah Anda yakin ingin melanjutkan?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Ya, Hapus Akun'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _deleteAccount(context, auth, db);
+    }
+  }
+
+  Future<void> _deleteAccount(
+    BuildContext context,
+    AuthProvider auth,
+    AppDatabase db,
+  ) async {
+    try {
+      final userId = auth.user?.id;
+      if (userId == null) return;
+
+      // Show loading dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Delete all user data in order
+      await db.devicesDao.deleteAllUsageHistoryForUser(userId);
+      await db.devicesDao.deleteAllBudgetsForUser(userId);
+      await db.devicesDao.deleteAllDevicesForUser(userId);
+      await db.usersDao.deleteUser(userId);
+
+      // Logout & clear session
+      await auth.logout();
+
+      if (!mounted) return;
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      // Redirect to login
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text('Akun Anda telah dihapus secara permanen')),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      // Close loading dialog if still open
+      Navigator.of(context).pop();
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Gagal menghapus akun: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 }
