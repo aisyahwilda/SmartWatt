@@ -6,8 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class GeminiService {
   final String _apiKey;
 
-  GeminiService()
-      : _apiKey = dotenv.env['GEMINI_API_KEY'] ?? '' {
+  GeminiService() : _apiKey = dotenv.env['GEMINI_API_KEY'] ?? '' {
     if (_apiKey.isEmpty) {
       throw Exception('GEMINI_API_KEY belum diisi di file .env');
     }
@@ -20,7 +19,8 @@ class GeminiService {
     required String jenisHunian,
     required int jumlahPenghuni,
   }) async {
-    final prompt = """
+    final prompt =
+        """
 Kamu adalah asisten SmartWatt.
 
 DATA PENGGUNA:
@@ -61,15 +61,22 @@ Hanya 3 baris.
               ],
             }),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode != 200) {
+        print('❌ [Gemini] API Error: ${response.statusCode}');
+        print('📋 Body: ${response.body.substring(0, 200)}');
         return _fallback(perangkatBoros);
       }
 
       final data = jsonDecode(response.body);
       final text =
           data['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
+
+      if (text.isEmpty) {
+        print('⚠️ [Gemini] Response text kosong!');
+        print('📋 Full response: ${response.body.substring(0, 300)}');
+      }
 
       final lines = text
           .split('\n')
@@ -78,10 +85,16 @@ Hanya 3 baris.
           .take(3)
           .toList();
 
-      return lines.isNotEmpty
-          ? lines
-          : _fallback(perangkatBoros);
-    } catch (_) {
+      if (lines.isEmpty) {
+        print('⚠️ [Gemini] Parsing gagal, lines kosong → fallback');
+      } else {
+        print('✅ [Gemini] Successfully parsed ${lines.length} recommendations');
+      }
+
+      return lines.isNotEmpty ? lines : _fallback(perangkatBoros);
+    } catch (e, stack) {
+      print('❌ [Gemini] Exception: $e');
+      print('📋 Stack: ${stack.toString().split('\n').take(3).join('\n')}');
       return _fallback(perangkatBoros);
     }
   }

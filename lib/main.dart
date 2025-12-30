@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'constants/colors_app.dart';
 import 'database/app_database.dart';
+import 'pages/splash_screen.dart';
 import 'pages/hero_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
@@ -65,8 +66,9 @@ class MyApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const HeroScreen(),
+      home: const SplashScreen(),
       routes: {
+        '/hero': (context) => const HeroScreen(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const SmartWattDashboard(),
