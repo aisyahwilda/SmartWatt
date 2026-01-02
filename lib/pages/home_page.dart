@@ -570,7 +570,7 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Rekomendasi Penghematan AI',
+                      'Rekomendasi Penghematan',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -689,8 +689,8 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
                             color: percentage > 0.8
                                 ? Colors.red
                                 : percentage > 0.6
-                                ? Colors.red
-                                : AppColors.teal,
+                                ? Colors.amber.shade600
+                                : Colors.green.shade500,
                             minHeight: 12,
                           ),
                           const SizedBox(height: 12),
@@ -775,18 +775,18 @@ class _SmartWattDashboardState extends State<SmartWattDashboard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Flexible(
-                  fit: FlexFit.tight,
-                  child: Text(
-                    _totalDailyKWh.toStringAsFixed(2),
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.deepTeal,
-                      height: 1.0,
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _totalDailyKWh.toStringAsFixed(2),
+                      style: TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.deepTeal,
+                        height: 1.0,
+                      ),
                     ),
                   ),
                 ),

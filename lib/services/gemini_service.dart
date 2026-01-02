@@ -44,7 +44,7 @@ Hanya 3 baris.
     try {
       final url = Uri.parse(
         // MODEL PALING AMAN (kalau error → fallback)
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$_apiKey',
+        'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$_apiKey',
       );
 
       final response = await http

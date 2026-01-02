@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             // Logo SmartWatt
             Image.asset(
-              'images/logo_app.png',
+              'images/logo.png',
               width: 120,
               height: 120,
               errorBuilder: (context, error, stackTrace) =>

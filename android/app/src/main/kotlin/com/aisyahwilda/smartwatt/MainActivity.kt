@@ -1,4 +1,4 @@
-package com.example.smartwatt_app
+package com.aisyahwilda.smartwatt
 
 import io.flutter.embedding.android.FlutterActivity
 
